@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EbitenStudio</title>
+  <link rel="stylesheet" href="styles/app.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- 顶部工具栏 -->
+    <header class="toolbar">
+      <div class="toolbar-section">
+        <h1 class="app-title">EbitenStudio</h1>
+      </div>
+      <div class="toolbar-section toolbar-center">
+        <button class="tool-btn" id="btn-create-button" data-type="button">
+          <span>🔘</span> 按钮
+        </button>
+        <button class="tool-btn" id="btn-create-label" data-type="label">
+          <span>📝</span> 标签
+        </button>
+        <button class="tool-btn" id="btn-create-panel" data-type="panel">
+          <span>📦</span> 面板
+        </button>
+        <div class="separator"></div>
+        <button class="tool-btn" id="btn-delete">
+          <span>🗑️</span> 删除
+        </button>
+      </div>
+      <div class="toolbar-section">
+        <span class="status" id="connection-status">● 已连接</span>
+      </div>
+    </header>
+
+    <div class="main-content">
+      <!-- 左侧层级面板 -->
+      <aside class="sidebar sidebar-left">
+        <h3>组件层级</h3>
+        <div id="widget-tree" class="widget-list">
+          <p class="empty-hint">暂无组件</p>
+        </div>
+      </aside>
+
+      <!-- 中间画布区域 -->
+      <main class="canvas-area">
+        <div class="canvas-placeholder">
+          <h2>📐 Canvas 预览</h2>
+          <p>Ebiten 窗口在独立窗口中显示</p>
+          <p class="hint">请在独立的 "EbitenStudio Canvas" 窗口中查看渲染结果</p>
+          <p class="hint">在 Canvas 窗口中可以拖拽组件</p>
+        </div>
+      </main>
+
+      <!-- 右侧属性面板 -->
+      <aside class="sidebar sidebar-right">
+        <h3>属性</h3>
+        <div id="properties-panel">
+          <p class="empty-hint">未选择组件</p>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/properties.js"></script>
+  <script src="js/toolbar.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

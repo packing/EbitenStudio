@@ -1,0 +1,203 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #1e1e1e;
+  color: #cccccc;
+  overflow: hidden;
+}
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* 工具栏 */
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #2d2d30;
+  padding: 8px 16px;
+  border-bottom: 1px solid #3e3e42;
+}
+
+.toolbar-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toolbar-center {
+  flex: 1;
+  justify-content: center;
+}
+
+.app-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.tool-btn {
+  padding: 6px 12px;
+  background: #3e3e42;
+  border: 1px solid #555;
+  border-radius: 4px;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: background 0.2s;
+}
+
+.tool-btn:hover {
+  background: #4e4e52;
+}
+
+.tool-btn:active {
+  background: #5e5e62;
+}
+
+.separator {
+  width: 1px;
+  height: 24px;
+  background: #555;
+  margin: 0 8px;
+}
+
+.status {
+  font-size: 12px;
+  color: #4caf50;
+}
+
+/* 主内容区 */
+.main-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.sidebar {
+  width: 250px;
+  background: #252526;
+  border-right: 1px solid #3e3e42;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.sidebar-right {
+  border-right: none;
+  border-left: 1px solid #3e3e42;
+}
+
+.sidebar h3 {
+  font-size: 14px;
+  color: #fff;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.canvas-area {
+  flex: 1;
+  background: #1e1e1e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.canvas-placeholder {
+  text-align: center;
+  color: #666;
+}
+
+.canvas-placeholder h2 {
+  font-size: 32px;
+  margin-bottom: 16px;
+}
+
+.canvas-placeholder p {
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.canvas-placeholder .hint {
+  color: #888;
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* 组件列表 */
+.widget-list {
+  list-style: none;
+}
+
+.widget-item {
+  padding: 8px 12px;
+  background: #2d2d30;
+  border: 1px solid #3e3e42;
+  border-radius: 4px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.2s;
+}
+
+.widget-item:hover {
+  background: #3e3e42;
+}
+
+.widget-item.selected {
+  background: #094771;
+  border-color: #007acc;
+}
+
+.empty-hint {
+  color: #666;
+  font-size: 12px;
+  font-style: italic;
+  text-align: center;
+  padding: 20px;
+}
+
+/* 属性面板 */
+.property-group {
+  margin-bottom: 16px;
+}
+
+.property-label {
+  display: block;
+  font-size: 12px;
+  color: #ccc;
+  margin-bottom: 4px;
+}
+
+.property-input {
+  width: 100%;
+  padding: 6px 8px;
+  background: #3c3c3c;
+  border: 1px solid #555;
+  border-radius: 3px;
+  color: #ccc;
+  font-size: 13px;
+}
+
+.property-input:focus {
+  outline: none;
+  border-color: #007acc;
+}
+
+.property-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
