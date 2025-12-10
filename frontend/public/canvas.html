@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ebiten Canvas</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html {
+      overflow: auto;
+    }
+    body {
+      overflow: hidden;
+      width: 1920px;
+      height: 1080px;
+    }
+
+    canvas {
+      overflow: visible;
+    }
+
+    /*
+    canvas {
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }*/
+  </style>
+  <script src="wasm_exec.js"></script>
+</head>
+<body>
+  <!-- 画布边框指示器 -->
+  <div id="canvas-border"></div>
+  
+  <script>
+    // 从父窗口获取画布尺寸配置
+    const config = window.parent.canvasConfig || { width: 800, height: 600 };
+    
+    // 设置画布边框指示器
+    const border = document.getElementById('canvas-border');
+    border.style.position = 'absolute';
+    border.style.left = '0';
+    border.style.top = '0';
+    border.style.width = config.width + 'px';
+    border.style.height = config.height + 'px';
+    border.style.border = '2px solid red';
+    border.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+    border.style.pointerEvents = 'none'; // 不阻挡鼠标事件
+    border.style.zIndex = '1000';
+    
+    // ⚠️ 关键：在加载 WASM 前设置全局变量供 Go 读取
+    window.canvasWidth = config.width;
+    window.canvasHeight = config.height;
+    
+    // 加载 WASM
+    const go = new Go();
+    WebAssembly.instantiateStreaming(fetch("canvas.wasm"), go.importObject)
+      .then((result) => {
+        console.log('WASM loaded, starting Go runtime...');
+        go.run(result.instance);
+        console.log('✓ Ebiten initialized');
+        
+        // 等待 ebitenCanvas 全局对象注册
+        const checkReady = setInterval(() => {
+          if (window.ebitenCanvas) {
+            clearInterval(checkReady);
+            console.log('✓ ebitenCanvas API ready');
+            // 通知父窗口已就绪
+            window.parent.postMessage({ type: 'ebiten:ready' }, '*');
+          }
+        }, 50);
+      })
+      .catch((err) => {
+        console.error("Failed to load WASM:", err);
+        window.parent.postMessage({ type: 'ebiten:error', error: err.message }, '*');
+      });
+  </script>
+</body>
+</html>
