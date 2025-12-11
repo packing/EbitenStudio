@@ -16,6 +16,43 @@ body {
   overflow: hidden;
 }
 
+/* 美化滚动条样式 */
+/* Webkit 浏览器 (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1e1e1e;
+  border-radius: 0;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #424242;
+  border-radius: 6px;
+  border: 2px solid #1e1e1e;
+  transition: background 0.2s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4e4e4e;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: #5a5a5a;
+}
+
+::-webkit-scrollbar-corner {
+  background: #1e1e1e;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #424242 #1e1e1e;
+}
+
 .app-container {
   display: flex;
   flex-direction: column;
@@ -98,17 +135,48 @@ body {
 
 .sidebar {
   width: 250px;
+  min-width: 200px;
+  max-width: 500px;
   background: #252526;
   border-right: 1px solid #3e3e42;
   padding: 16px;
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .sidebar-right {
   border-right: none;
   border-left: 1px solid #3e3e42;
+  width: 320px;
+  min-width: 280px;
+}
+
+/* Resize handle */
+.resize-handle {
+  position: absolute;
+  top: 0;
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.2s;
+  z-index: 10;
+  pointer-events: all;
+}
+
+.resize-handle:hover,
+.resize-handle.dragging {
+  background: #007acc;
+}
+
+.sidebar-left .resize-handle {
+  right: 0;
+}
+
+.sidebar-right .resize-handle {
+  left: 0;
 }
 
 .sidebar h3 {
@@ -247,6 +315,94 @@ body {
   border-color: #007acc;
 }
 
+/* 颜色输入框固定小宽度 */
+.property-input[type="color"] {
+  width: 80px;
+  height: 32px;
+  padding: 2px;
+  cursor: pointer;
+}
+
+/* 颜色输入框容器 - 使用 flex 布局 */
+.color-input-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 颜色选择器按钮 */
+.color-picker-btn {
+  width: 80px;
+  height: 32px;
+  border: 2px solid #555;
+  border-radius: 4px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+  background-image: 
+    linear-gradient(45deg, #444 25%, transparent 25%),
+    linear-gradient(-45deg, #444 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #444 75%),
+    linear-gradient(-45deg, transparent 75%, #444 75%);
+  background-size: 10px 10px;
+  background-position: 0 0, 0 5px, 5px -5px, -5px 0px;
+  transition: border-color 0.2s;
+}
+
+.color-picker-btn:hover {
+  border-color: #007acc;
+}
+
+.color-picker-btn-color {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* 颜色状态文本 */
+.color-status {
+  font-size: 11px;
+  color: #888;
+  font-style: italic;
+  min-width: 100px;
+}
+
+/* Alpha 滑块容器 */
+.alpha-input-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding-left: 88px; /* 与颜色选择器对齐 */
+}
+
+.alpha-input-group label {
+  font-size: 11px;
+  color: #888;
+  min-width: 40px;
+}
+
+.alpha-slider {
+  flex: 1;
+  height: 4px;
+  background: linear-gradient(to right, transparent, #fff);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.alpha-value {
+  font-size: 11px;
+  color: #aaa;
+  min-width: 30px;
+  text-align: right;
+}
+
 .property-value {
   padding: 6px 0;
   color: #888;
@@ -266,6 +422,27 @@ body {
 
 .property-group {
   position: relative;
+}
+
+/* 清除按钮 - 用于颜色等可选属性 */
+.btn-clear-color {
+  width: 24px;
+  height: 24px;
+  background: #555;
+  border: none;
+  border-radius: 3px;
+  color: #ccc;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.btn-clear-color:hover {
+  background: #e74c3c;
+  color: #fff;
 }
 
 .btn-clear-value {
@@ -670,3 +847,185 @@ input[type="number"] {
   background-color: #4a4a4a;
 }
 
+/* RGBA 颜色选择器对话框 */
+.rgba-picker-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.rgba-picker-dialog {
+  background: #2d2d30;
+  border: 1px solid #3e3e42;
+  border-radius: 6px;
+  padding: 24px;
+  min-width: 340px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+
+.rgba-picker-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 20px;
+}
+
+.rgba-picker-preview {
+  width: 100%;
+  height: 70px;
+  border: 2px solid #3e3e42;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  background-image: 
+    linear-gradient(45deg, #555 25%, transparent 25%),
+    linear-gradient(-45deg, #555 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #555 75%),
+    linear-gradient(-45deg, transparent 75%, #555 75%);
+  background-size: 14px 14px;
+  background-position: 0 0, 0 7px, 7px -7px, -7px 0px;
+  position: relative;
+  overflow: hidden;
+}
+
+.rgba-picker-preview-color {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.rgba-picker-hex-input {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.rgba-picker-hex-input label {
+  font-size: 13px;
+  color: #ccc;
+  font-weight: 600;
+  min-width: 40px;
+}
+
+.rgba-picker-hex-input input {
+  flex: 1;
+  background: #1e1e1e;
+  border: 1px solid #3e3e42;
+  color: #fff;
+  padding: 8px 10px;
+  border-radius: 4px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+.rgba-picker-hex-input input:focus {
+  outline: none;
+  border-color: #007acc;
+}
+
+.rgba-picker-channel {
+  margin-bottom: 16px;
+}
+
+.rgba-picker-channel-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: #aaa;
+}
+
+.rgba-picker-channel-label span:first-child {
+  font-weight: 500;
+}
+
+.rgba-picker-channel-value {
+  color: #fff;
+  font-weight: 700;
+  min-width: 35px;
+  text-align: right;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.rgba-picker-slider {
+  width: 100%;
+  height: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  outline: none;
+  border-radius: 3px;
+  cursor: pointer;
+  background: linear-gradient(to right, #1e1e1e, #666);
+}
+
+.rgba-picker-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border: 2px solid #555;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  transition: transform 0.1s;
+}
+
+.rgba-picker-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+}
+
+.rgba-picker-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border: 2px solid #555;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.rgba-picker-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+.rgba-picker-btn {
+  padding: 8px 20px;
+  border: 1px solid #3e3e42;
+  border-radius: 4px;
+  background: #3e3e42;
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.rgba-picker-btn:hover {
+  background: #505053;
+  border-color: #505053;
+}
+
+.rgba-picker-btn.primary {
+  background: #0e639c;
+  border-color: #0e639c;
+}
+
+.rgba-picker-btn.primary:hover {
+  background: #1177bb;
+  border-color: #1177bb;
+}

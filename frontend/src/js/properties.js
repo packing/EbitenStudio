@@ -17,6 +17,41 @@ class PropertiesPanel {
     };
     return typeNames[type] || type;
   }
+  
+  /**
+   * 格式化 RGBA 颜色显示
+   * @param {string} hexColor - 十六进制颜色 (#RRGGBB)
+   * @param {number} alpha - Alpha 值 (0-255)
+   * @returns {string} 格式化的 RGBA 字符串
+   */
+  formatRGBA(hexColor, alpha) {
+    if (!hexColor) return '无';
+    
+    // 将 hex 转换为 RGB
+    const r = parseInt(hexColor.slice(1, 3), 16);
+    const g = parseInt(hexColor.slice(3, 5), 16);
+    const b = parseInt(hexColor.slice(5, 7), 16);
+    const a = alpha !== undefined ? alpha : 255;
+    
+    return `rgba(${r},${g},${b},${a})`;
+  }
+
+  /**
+   * 格式化 RGBA 颜色为 CSS 样式字符串
+   * @param {string} hexColor - 十六进制颜色 (#RRGGBB)
+   * @param {number} alpha - Alpha 值 (0-255)
+   * @returns {string} CSS rgba() 字符串
+   */
+  formatRGBAStyle(hexColor, alpha) {
+    if (!hexColor) return 'transparent';
+    
+    const r = parseInt(hexColor.slice(1, 3), 16);
+    const g = parseInt(hexColor.slice(3, 5), 16);
+    const b = parseInt(hexColor.slice(5, 7), 16);
+    const a = alpha !== undefined ? alpha / 255 : 1;
+    
+    return `rgba(${r},${g},${b},${a})`;
+  }
 
   show(widget) {
     this.currentWidget = widget;
@@ -96,7 +131,13 @@ class PropertiesPanel {
         
         <div class="property-group">
           <label class="property-label">文本颜色</label>
-          <input type="color" class="property-input" id="prop-textColor" value="${w.textColor || '#333333'}">
+          <div class="color-input-group">
+            <button class="color-picker-btn" data-color-prop="textColor" title="点击选择颜色">
+              <div class="color-picker-btn-color" style="background-color: ${this.formatRGBAStyle(w.textColor, w.textColorAlpha)}"></div>
+            </button>
+            <span class="color-status">${this.formatRGBA(w.textColor, w.textColorAlpha)}</span>
+            <button class="btn-clear-color" data-color-prop="textColor" title="清除颜色">✕</button>
+          </div>
         </div>
         
         <div class="property-group">
@@ -142,7 +183,13 @@ class PropertiesPanel {
           
           <div class="property-group">
             <label class="property-label">描边颜色</label>
-            <input type="color" class="property-input" id="prop-strokeColor" value="${w.strokeColor || '#000000'}">
+            <div class="color-input-group">
+              <button class="color-picker-btn" data-color-prop="strokeColor" title="点击选择颜色">
+                <div class="color-picker-btn-color" style="background-color: ${this.formatRGBAStyle(w.strokeColor, w.strokeColorAlpha)}"></div>
+              </button>
+              <span class="color-status">${this.formatRGBA(w.strokeColor, w.strokeColorAlpha)}</span>
+              <button class="btn-clear-color" data-color-prop="strokeColor" title="清除颜色">✕</button>
+            </div>
           </div>
           
           <div class="property-group">
@@ -196,6 +243,54 @@ class PropertiesPanel {
         <input type="number" class="property-input" id="prop-opacity" value="${w.opacity !== undefined ? w.opacity : 100}" min="0" max="100">
       </div>
       
+      <!-- Padding 属性 -->
+      <div class="property-section-title">内边距 (Padding)</div>
+      
+      <div class="property-group">
+        <div class="property-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div>
+            <label class="property-label">上</label>
+            <input type="number" class="property-input" id="prop-paddingTop" value="${w.padding?.top || 0}" min="0">
+          </div>
+          <div>
+            <label class="property-label">右</label>
+            <input type="number" class="property-input" id="prop-paddingRight" value="${w.padding?.right || 0}" min="0">
+          </div>
+          <div>
+            <label class="property-label">下</label>
+            <input type="number" class="property-input" id="prop-paddingBottom" value="${w.padding?.bottom || 0}" min="0">
+          </div>
+          <div>
+            <label class="property-label">左</label>
+            <input type="number" class="property-input" id="prop-paddingLeft" value="${w.padding?.left || 0}" min="0">
+          </div>
+        </div>
+      </div>
+      
+      <!-- Margin 属性 -->
+      <div class="property-section-title">外边距 (Margin)</div>
+      
+      <div class="property-group">
+        <div class="property-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div>
+            <label class="property-label">上</label>
+            <input type="number" class="property-input" id="prop-marginTop" value="${w.margin?.top || 0}" min="0">
+          </div>
+          <div>
+            <label class="property-label">右</label>
+            <input type="number" class="property-input" id="prop-marginRight" value="${w.margin?.right || 0}" min="0">
+          </div>
+          <div>
+            <label class="property-label">下</label>
+            <input type="number" class="property-input" id="prop-marginBottom" value="${w.margin?.bottom || 0}" min="0">
+          </div>
+          <div>
+            <label class="property-label">左</label>
+            <input type="number" class="property-input" id="prop-marginLeft" value="${w.margin?.left || 0}" min="0">
+          </div>
+        </div>
+      </div>
+      
       <!-- 边框属性 -->
       <div class="property-section-title">边框</div>
       
@@ -206,7 +301,13 @@ class PropertiesPanel {
       
       <div class="property-group">
         <label class="property-label">边框颜色</label>
-        <input type="color" class="property-input" id="prop-borderColor" value="${w.borderColor || '#666666'}">
+        <div class="color-input-group">
+          <button class="color-picker-btn" data-color-prop="borderColor" title="点击选择颜色">
+            <div class="color-picker-btn-color" style="background-color: ${this.formatRGBAStyle(w.borderColor, w.borderColorAlpha)}"></div>
+          </button>
+          <span class="color-status">${this.formatRGBA(w.borderColor, w.borderColorAlpha)}</span>
+          <button class="btn-clear-color" data-color-prop="borderColor" title="清除颜色">✕</button>
+        </div>
       </div>
       
       <div class="property-group">
@@ -217,22 +318,91 @@ class PropertiesPanel {
       <!-- 背景属性 -->
       <div class="property-section-title">背景</div>
       
-      <div class="property-group">
-        <label class="property-label">背景颜色</label>
-        <input type="color" class="property-input" id="prop-backgroundColor" value="${w.backgroundColor || '#ffffff'}">
-        <button class="btn-clear-value" data-prop="backgroundColor" title="清除背景颜色">✕</button>
-      </div>
-      
-      <div class="property-group">
-        <label class="property-label">背景图片</label>
-        <div class="resource-picker">
-          ${this.renderResourcePicker('image', w.backgroundResourceId)}
-        </div>
-      </div>
+      ${this.renderBackgroundProperties(w)}
     `;
 
     this.panel.innerHTML = html;
     this.attachEventListeners();
+  }
+
+  renderBackgroundProperties(w) {
+    // 图像控件不需要背景设置（它本身就是图片）
+    if (w.type === 'image') {
+      return '';
+    }
+    
+    // 判断是否需要三态背景
+    const hasThreeStates = w.type === 'button' || w.type === 'textinput';
+    
+    if (hasThreeStates) {
+      const states = w.type === 'button' 
+        ? [
+            { key: 'Normal', label: '常态' },
+            { key: 'Pressed', label: '按下' },
+            { key: 'Disabled', label: '禁用' }
+          ]
+        : [
+            { key: 'Normal', label: '常态' },
+            { key: 'Editing', label: '编辑中' },
+            { key: 'Disabled', label: '禁用' }
+          ];
+      
+      let html = '';
+      states.forEach(state => {
+        const colorProp = `backgroundColor${state.key}`;
+        const alphaProp = `backgroundColor${state.key}Alpha`;
+        const resourceProp = `backgroundResource${state.key}`;
+        
+        html += `
+          <div class="property-group">
+            <label class="property-label">${state.label}背景色</label>
+            <div class="color-input-group">
+              <button class="color-picker-btn" data-color-prop="${colorProp}" title="点击选择颜色">
+                <div class="color-picker-btn-color" style="background-color: ${this.formatRGBAStyle(w[colorProp], w[alphaProp])}"></div>
+              </button>
+              <span class="color-status">${this.formatRGBA(w[colorProp], w[alphaProp])}</span>
+              <button class="btn-clear-color" data-color-prop="${colorProp}" title="清除颜色">✕</button>
+            </div>
+          </div>
+          
+          <div class="property-group">
+            <label class="property-label">${state.label}背景图</label>
+            <div class="resource-picker">
+              <select class="property-input resource-select" data-resource-type="images" data-state-key="${state.key}">
+                <option value="">-- 无 --</option>
+                ${this.getResourceOptions('images', w[resourceProp])}
+              </select>
+            </div>
+          </div>
+        `;
+      });
+      
+      return html;
+    } else {
+      // 普通单一背景
+      return `
+        <div class="property-group">
+          <label class="property-label">背景颜色</label>
+          <div class="color-input-group">
+            <button class="color-picker-btn" data-color-prop="backgroundColor" title="点击选择颜色">
+              <div class="color-picker-btn-color" style="background-color: ${this.formatRGBAStyle(w.backgroundColor, w.backgroundColorAlpha)}"></div>
+            </button>
+            <span class="color-status">${this.formatRGBA(w.backgroundColor, w.backgroundColorAlpha)}</span>
+            <button class="btn-clear-color" data-color-prop="backgroundColor" title="清除颜色">✕</button>
+          </div>
+        </div>
+        
+        <div class="property-group">
+          <label class="property-label">背景图片</label>
+          <div class="resource-picker">
+            <select class="property-input resource-select" data-resource-type="images" data-bg-type="single">
+              <option value="">-- 无 --</option>
+              ${this.getResourceOptions('images', w.backgroundResourceId)}
+            </select>
+          </div>
+        </div>
+      `;
+    }
   }
 
   renderResourcePicker(resourceType, selectedResourceId) {
@@ -249,6 +419,14 @@ class PropertiesPanel {
     
     html += '</select>';
     return html;
+  }
+  
+  getResourceOptions(resourceKey, selectedResourceId) {
+    const resources = resourceManager.resources[resourceKey] || [];
+    return resources.map(res => {
+      const selected = res.id === selectedResourceId ? 'selected' : '';
+      return `<option value="${res.id}" ${selected}>${res.name}</option>`;
+    }).join('');
   }
 
   renderSpecialProperties(w) {
@@ -325,16 +503,61 @@ class PropertiesPanel {
       }
     });
     
-    // 颜色输入框
-    const colorInputs = ['textColor', 'strokeColor', 'borderColor', 'backgroundColor'];
-    colorInputs.forEach(prop => {
+    // Padding 属性
+    ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'].forEach(prop => {
       const input = document.getElementById(`prop-${prop}`);
       if (input) {
-        input.addEventListener('change', () => this.updateProperty(prop, input.value));
+        input.addEventListener('change', () => {
+          const side = prop.replace('padding', '').toLowerCase();
+          this.updatePadding(side, parseInt(input.value) || 0);
+        });
       }
     });
     
-    // 清除按钮
+    // Margin 属性
+    ['marginTop', 'marginRight', 'marginBottom', 'marginLeft'].forEach(prop => {
+      const input = document.getElementById(`prop-${prop}`);
+      if (input) {
+        input.addEventListener('change', () => {
+          const side = prop.replace('margin', '').toLowerCase();
+          this.updateMargin(side, parseInt(input.value) || 0);
+        });
+      }
+    });
+    
+    // 颜色选择器按钮
+    const colorButtons = document.querySelectorAll('.color-picker-btn');
+    colorButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const prop = btn.getAttribute('data-color-prop');
+        const widget = window.app?.selectedWidget;
+        if (!widget) return;
+        
+        const hexColor = widget[prop] || '#ffffff';
+        const alpha = widget[`${prop}Alpha`] !== undefined ? widget[`${prop}Alpha`] : 255;
+        
+        // 打开 RGBA 颜色选择器
+        window.rgbaPicker.open(hexColor, alpha, prop, (newHex, newAlpha) => {
+          this.updateProperty(prop, newHex);
+          this.updateProperty(`${prop}Alpha`, newAlpha);
+          this.render(); // 刷新显示
+        });
+      });
+    });
+    
+    // 清除颜色按钮
+    const clearColorButtons = document.querySelectorAll('.btn-clear-color');
+    clearColorButtons.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const prop = e.target.dataset.colorProp;
+        if (prop) {
+          this.updateProperty(prop, '');
+          this.render(); // 重新渲染以更新显示
+        }
+      });
+    });
+    
+    // 清除按钮 (旧的,保留兼容性)
     const clearButtons = document.querySelectorAll('.btn-clear-value');
     clearButtons.forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -378,20 +601,22 @@ class PropertiesPanel {
     
     const widget = this.currentWidget;
     const selectElement = event.target;
-    const isBackgroundPicker = selectElement.closest('.property-group')?.querySelector('.property-label')?.textContent.includes('背景图片');
+    const stateKey = selectElement.dataset.stateKey; // Normal, Pressed, Disabled, Editing
+    const bgType = selectElement.dataset.bgType; // single
     
     if (resourceType === 'images') {
-      if (isBackgroundPicker) {
+      // 判断是否为背景资源
+      const isBackground = stateKey || bgType === 'single';
+      
+      if (isBackground) {
         // 背景图片资源
-        if (resourceId) {
-          const resource = resourceManager.getResource(resourceId, resourceType);
-          if (resource) {
-            widget.backgroundImage = resource.data;
-            widget.backgroundResourceId = resourceId;
-          }
+        if (stateKey) {
+          // 三态背景
+          const propName = `backgroundResource${stateKey}`;
+          widget[propName] = resourceId;
         } else {
-          widget.backgroundImage = null;
-          widget.backgroundResourceId = null;
+          // 普通单一背景
+          widget.backgroundResourceId = resourceId;
         }
       } else {
         // 图片控件的资源
@@ -470,6 +695,34 @@ class PropertiesPanel {
     // 更新本地数据
     this.currentWidget[prop] = value;
     console.log('Property updated:', prop, value);
+    app.updateWidgetInList(this.currentWidget);
+  }
+  
+  updatePadding(side, value) {
+    if (!this.currentWidget) return;
+    
+    // 确保 padding 对象存在
+    if (!this.currentWidget.padding) {
+      this.currentWidget.padding = { top: 0, right: 0, bottom: 0, left: 0 };
+    }
+    
+    // 更新指定方向的 padding
+    this.currentWidget.padding[side] = value;
+    console.log('Padding updated:', side, value);
+    app.updateWidgetInList(this.currentWidget);
+  }
+  
+  updateMargin(side, value) {
+    if (!this.currentWidget) return;
+    
+    // 确保 margin 对象存在
+    if (!this.currentWidget.margin) {
+      this.currentWidget.margin = { top: 0, right: 0, bottom: 0, left: 0 };
+    }
+    
+    // 更新指定方向的 margin
+    this.currentWidget.margin[side] = value;
+    console.log('Margin updated:', side, value);
     app.updateWidgetInList(this.currentWidget);
   }
 }

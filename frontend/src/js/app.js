@@ -155,10 +155,15 @@ class App {
   }
 
   async saveProjectAs(filePath) {
+    // 序列化 widgets - 如果是 Widget 实例，调用 toJSON()；否则直接使用
+    const serializedWidgets = this.widgets.map(widget => 
+      widget.toJSON && typeof widget.toJSON === 'function' ? widget.toJSON() : widget
+    );
+    
     const projectData = {
       version: '1.0',
       canvas: this.canvasConfig,
-      widgets: this.widgets,
+      widgets: serializedWidgets,
       resources: resourceManager.getAllResources() // 保存资源
     };
     
@@ -195,8 +200,15 @@ class App {
         canvasRenderer.setCanvasSize(this.canvasConfig.width, this.canvasConfig.height);
       }
       
-      // 加载控件
-      this.widgets = projectData.widgets || [];
+      // 加载控件 - 反序列化为 Widget 类实例
+      const rawWidgets = projectData.widgets || [];
+      this.widgets = rawWidgets.map(widgetData => {
+        // 使用 Widget.fromJSON 将普通对象转换为类实例
+        if (widgetData.type && Widget.getWidgetClass) {
+          return Widget.fromJSON(widgetData);
+        }
+        return widgetData; // 兼容旧格式
+      });
       this.updateCanvasWidgets();
       
       // 重置工具栏ID计数器

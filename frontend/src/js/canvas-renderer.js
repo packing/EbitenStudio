@@ -444,13 +444,11 @@ class CanvasRenderer {
   }
 
   drawWidget(widget, selected) {
-    const { type } = widget;
-    // 优先使用临时渲染坐标（拖拽/缩放时），否则计算绝对坐标
-    let x, y, width, height;
-    
     // 检查是否有临时坐标或临时尺寸（拖拽或缩放时）
     const hasTempCoords = widget.renderX !== undefined && widget.renderY !== undefined;
     const hasTempSize = widget.renderWidth !== undefined || widget.renderHeight !== undefined;
+    
+    let x, y, width, height;
     
     if (hasTempCoords || hasTempSize) {
       // 拖拽或缩放时使用临时值
@@ -459,82 +457,43 @@ class CanvasRenderer {
       y = widget.renderY !== undefined ? widget.renderY : absPos.y;
       width = widget.renderWidth !== undefined ? widget.renderWidth : widget.width;
       height = widget.renderHeight !== undefined ? widget.renderHeight : widget.height;
-    } else {
-      // 正常情况下计算绝对坐标
-      const absPos = this.getAbsolutePosition(widget);
-      x = absPos.x;
-      y = absPos.y;
-      width = widget.width;
-      height = widget.height;
-    }
-    
-    const isVisible = widget.visible !== false;
-    
-    // 创建包含绝对坐标和临时尺寸的临时对象
-    const renderWidget = { ...widget, x, y, width, height };
-    
-    // 保存上下文状态
-    this.ctx.save();
-    
-    // 应用透明度（考虑父容器）
-    let effectiveOpacity = (widget.opacity !== undefined ? widget.opacity : 100) / 100;
-    
-    // 如果有父容器，继承父容器的透明度
-    if (widget.parentId) {
-      const parent = this.widgets.find(w => w.id === widget.parentId);
-      if (parent) {
-        const parentOpacity = (parent.opacity !== undefined ? parent.opacity : 100) / 100;
-        effectiveOpacity *= parentOpacity;
+      
+      // 创建临时渲染对象
+      const renderWidget = { ...widget, x, y, width, height };
+      
+      // 使用 Widget 类的 render 方法
+      if (widget.render && typeof widget.render === 'function') {
+        widget.render(this.ctx, this, selected, renderWidget);
+      } else {
+        // 兼容旧的普通对象，创建临时 Widget 实例
+        const WidgetClass = Widget.getWidgetClass(widget.type);
+        const tempWidget = Object.assign(new WidgetClass(0, 0, null), renderWidget);
+        tempWidget.render(this.ctx, this, selected);
       }
-    }
-    
-    // 不可见控件额外降低透明度
-    if (!isVisible) {
-      effectiveOpacity *= 0.3;
-    }
-    
-    this.ctx.globalAlpha = effectiveOpacity;
-
-    // 根据类型绘制
-    switch (type) {
-      case 'button':
-        this.drawButton(renderWidget, selected);
-        break;
-      case 'label':
-        this.drawLabel(renderWidget, selected);
-        break;
-      case 'textinput':
-        this.drawTextInput(renderWidget, selected);
-        break;
-      case 'slider':
-        this.drawSlider(renderWidget, selected);
-        break;
-      case 'image':
-        this.drawImage(renderWidget, selected);
-        break;
-      case 'listbox':
-        this.drawListBox(renderWidget, selected);
-        break;
-      case 'gridview':
-        this.drawGridView(renderWidget, selected);
-        break;
-      case 'panel':
-        this.drawPanel(renderWidget, selected);
-        break;
-      default:
-        this.drawDefault(renderWidget, selected);
-    }
-
-    // 恢复上下文状态
-    this.ctx.restore();
-
-    // 选中时绘制 resize handles
-    if (selected) {
-      this.drawResizeHandles(renderWidget);
+    } else {
+      // 正常情况下，直接使用 widget 实例
+      if (widget.render && typeof widget.render === 'function') {
+        widget.render(this.ctx, this, selected);
+      } else {
+        // 兼容旧的普通对象，创建临时 Widget 实例
+        const WidgetClass = Widget.getWidgetClass(widget.type);
+        const tempWidget = Object.assign(new WidgetClass(0, 0, null), widget);
+        tempWidget.render(this.ctx, this, selected);
+      }
     }
   }
 
   // 辅助函数：绘制背景和边框（支持圆角和9-patch图片）
+  // 将十六进制颜色和alpha值转换为rgba字符串
+  hexToRgba(hexColor, alpha = 255) {
+    if (!hexColor) return 'transparent';
+    const r = parseInt(hexColor.slice(1, 3), 16);
+    const g = parseInt(hexColor.slice(3, 5), 16);
+    const b = parseInt(hexColor.slice(5, 7), 16);
+    const a = alpha / 255; // Canvas使用0-1范围
+    return `rgba(${r},${g},${b},${a})`;
+  }
+
   drawBackgroundAndBorder(widget, x, y, width, height) {
     const borderRadius = widget.borderRadius || 0;
     const borderWidth = widget.borderWidth || 0;
@@ -547,15 +506,12 @@ class CanvasRenderer {
       this.ctx.beginPath();
       if (r > 0) {
         const radius = Math.min(r, w / 2, h / 2);
+        // 使用 arcTo() 绘制真正的圆弧
         this.ctx.moveTo(x + radius, y);
-        this.ctx.lineTo(x + w - radius, y);
-        this.ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
-        this.ctx.lineTo(x + w, y + h - radius);
-        this.ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
-        this.ctx.lineTo(x + radius, y + h);
-        this.ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
-        this.ctx.lineTo(x, y + radius);
-        this.ctx.quadraticCurveTo(x, y, x + radius, y);
+        this.ctx.arcTo(x + w, y, x + w, y + h, radius);
+        this.ctx.arcTo(x + w, y + h, x, y + h, radius);
+        this.ctx.arcTo(x, y + h, x, y, radius);
+        this.ctx.arcTo(x, y, x + w, y, radius);
       } else {
         this.ctx.rect(x, y, w, h);
       }
@@ -566,30 +522,47 @@ class CanvasRenderer {
     if (backgroundResourceId && window.resourceManager) {
       const resource = window.resourceManager.getResource(backgroundResourceId, 'images');
       if (resource && resource.data) {
-        const img = new Image();
-        img.src = resource.data;
+        // 使用图片缓存机制
+        if (!this.imageCache) this.imageCache = {};
         
-        // 检查是否有9-patch切片信息
-        const hasSlice = resource.sliceLeft > 0 || resource.sliceTop > 0 || 
-                        resource.sliceRight > 0 || resource.sliceBottom > 0;
+        const cacheKey = `bg_${backgroundResourceId}`;
+        if (!this.imageCache[cacheKey] || this.imageCache[cacheKey].src !== resource.data) {
+          const img = new Image();
+          this.imageCache[cacheKey] = { img, src: resource.data, loaded: false };
+          
+          img.onload = () => {
+            this.imageCache[cacheKey].loaded = true;
+            window.app?.render(); // 重新渲染
+          };
+          img.src = resource.data;
+        }
         
-        if (hasSlice) {
-          // 绘制9-patch图片
-          this.draw9PatchImage(img, resource, x, y, width, height, borderRadius);
-        } else {
-          // 普通拉伸
-          this.ctx.save();
-          createRoundedRectPath(x, y, width, height, borderRadius);
-          this.ctx.clip();
-          this.ctx.drawImage(img, x, y, width, height);
-          this.ctx.restore();
+        const cached = this.imageCache[cacheKey];
+        if (cached.loaded) {
+          const img = cached.img;
+          
+          // 检查是否有9-patch切片信息
+          const hasSlice = resource.sliceLeft > 0 || resource.sliceTop > 0 || 
+                          resource.sliceRight > 0 || resource.sliceBottom > 0;
+          
+          if (hasSlice) {
+            // 绘制9-patch图片
+            this.draw9PatchImage(img, resource, x, y, width, height, borderRadius);
+          } else {
+            // 普通拉伸
+            this.ctx.save();
+            createRoundedRectPath(x, y, width, height, borderRadius);
+            this.ctx.clip();
+            this.ctx.drawImage(img, x, y, width, height);
+            this.ctx.restore();
+          }
         }
       }
     } else if (backgroundColor) {
       // 纯色背景
       this.ctx.save();
       createRoundedRectPath(x, y, width, height, borderRadius);
-      this.ctx.fillStyle = backgroundColor;
+      this.ctx.fillStyle = this.hexToRgba(backgroundColor, widget.backgroundColorAlpha);
       this.ctx.fill();
       this.ctx.restore();
     }
@@ -598,7 +571,7 @@ class CanvasRenderer {
     if (borderWidth > 0 && borderColor) {
       this.ctx.save();
       createRoundedRectPath(x, y, width, height, borderRadius);
-      this.ctx.strokeStyle = borderColor;
+      this.ctx.strokeStyle = this.hexToRgba(borderColor, widget.borderColorAlpha);
       this.ctx.lineWidth = borderWidth;
       this.ctx.stroke();
       this.ctx.restore();
@@ -730,7 +703,7 @@ class CanvasRenderer {
     
     // 先绘制描边（如果有）
     if (strokeWidth > 0 && strokeColor) {
-      this.ctx.strokeStyle = strokeColor;
+      this.ctx.strokeStyle = this.hexToRgba(strokeColor, widget.strokeColorAlpha);
       this.ctx.lineWidth = strokeWidth * 2; // 加倍描边宽度使效果更明显
       this.ctx.lineJoin = 'round';
       this.ctx.miterLimit = 2;
@@ -738,7 +711,7 @@ class CanvasRenderer {
     }
     
     // 再绘制填充文本
-    this.ctx.fillStyle = textColor;
+    this.ctx.fillStyle = this.hexToRgba(textColor, widget.textColorAlpha);
     this.ctx.fillText(text, textX, textY);
     
     // 绘制下划线和删除线（仅标签）
@@ -751,7 +724,7 @@ class CanvasRenderer {
         lineX = textX - metrics.width;
       }
       
-      this.ctx.strokeStyle = textColor;
+      this.ctx.strokeStyle = this.hexToRgba(textColor, widget.textColorAlpha);
       this.ctx.lineWidth = Math.max(1, fontSize / 14);
       
       if (widget.textUnderline) {

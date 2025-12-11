@@ -51,6 +51,7 @@
     <div class="main-content">
       <!-- 左侧面板 -->
       <aside class="sidebar sidebar-left">
+        <div class="resize-handle"></div>
         <!-- 组件层级 -->
         <div class="panel-section">
           <h3>组件层级</h3>
@@ -91,6 +92,7 @@
 
       <!-- 右侧属性面板 -->
       <aside class="sidebar sidebar-right">
+        <div class="resize-handle"></div>
         <h3>属性</h3>
         <div id="properties-panel">
           <p class="empty-hint">未选择组件</p>
@@ -100,10 +102,14 @@
   </div>
 
   <!-- 不再需要 API 连接和 WASM -->
+  <script src="js/widgets/base.js"></script>
+  <script src="js/widgets/types.js"></script>
+  <script src="js/rgba-picker.js"></script>
   <script src="js/canvas-renderer.js"></script>
   <script src="js/properties.js"></script>
   <script src="js/toolbar.js"></script>
   <script src="js/resource-manager.js"></script>
+  <script src="js/sidebar-resizer.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
