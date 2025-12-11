@@ -13,6 +13,23 @@ class Widget {
     this.width = 100;
     this.height = 30;
     
+    // 锚点定位系统
+    this.positionMode = 'absolute'; // 'absolute' 或 'anchor'
+    this.anchorX = 'left';   // 'left', 'center', 'right'
+    this.anchorY = 'top';    // 'top', 'middle', 'bottom'
+    this.offsetX = 0;        // 距离锚点的偏移
+    this.offsetY = 0;
+    
+    // 边界锚定系统（控制尺寸响应）
+    this.anchorLeft = false;   // 锚定左边
+    this.anchorRight = false;  // 锚定右边
+    this.anchorTop = false;    // 锚定上边
+    this.anchorBottom = false; // 锚定下边
+    
+    // 设计时边距（用于计算响应式尺寸）
+    this.designMarginRight = 0;  // 设计时右边距
+    this.designMarginBottom = 0; // 设计时底边距
+    
     // 层级和可见性
     this.zIndex = 0;
     this.visible = true;
@@ -61,7 +78,7 @@ class Widget {
         textinput: 1,
         slider: 1,
         image: 1,
-        listbox: 1,
+        listview: 1,
         gridview: 1,
         panel: 1
       };
@@ -300,22 +317,177 @@ class Widget {
   
   /**
    * 根据类型获取对应的类
+   * 注意：使用字符串动态查找全局类，避免在模块加载时出现引用错误
    */
   static getWidgetClass(type) {
-    const classMap = {
-      button: ButtonWidget,
-      label: LabelWidget,
-      textinput: TextInputWidget,
-      slider: SliderWidget,
-      image: ImageWidget,
-      listbox: ListBoxWidget,
-      gridview: GridViewWidget,
-      panel: PanelWidget
+    // 使用字符串名称在运行时从全局作用域获取类
+    const classNames = {
+      button: 'ButtonWidget',
+      label: 'LabelWidget',
+      textinput: 'TextInputWidget',
+      image: 'ImageWidget',
+      listview: 'ListViewWidget',
+      gridview: 'GridViewWidget',
+      tableview: 'TableViewWidget',
+      combobox: 'ComboBoxWidget',
+      slider: 'SliderWidget',
+      checkbox: 'CheckBoxWidget',
+      radiobutton: 'RadioButtonWidget',
+      panel: 'PanelWidget'
     };
     
-    return classMap[type] || Widget;
+    const className = classNames[type];
+    if (className && typeof window[className] === 'function') {
+      return window[className];
+    }
+    return Widget;
   }
-}
+  
+  /**
+   * 将绝对坐标转换为锚点模式
+   * @param {number} canvasWidth - 画布宽度
+   * @param {number} canvasHeight - 画布高度
+   */
+  convertToAnchor(canvasWidth, canvasHeight) {
+    if (this.positionMode === 'anchor') return; // 已经是锚点模式
+    
+    // 保存当前绝对坐标
+    const currentX = this.x;
+    const currentY = this.y;
+    
+    // 根据位置判断最近的锚点
+    const xPercent = currentX / canvasWidth;
+    const yPercent = currentY / canvasHeight;
+    
+    // 选择最近的锚点
+    if (xPercent < 0.33) {
+      this.anchorX = 'left';
+      this.offsetX = currentX;
+    } else if (xPercent < 0.67) {
+      this.anchorX = 'center';
+      this.offsetX = currentX - canvasWidth / 2;
+    } else {
+      this.anchorX = 'right';
+      this.offsetX = currentX - canvasWidth;
+    }
+    
+    if (yPercent < 0.33) {
+      this.anchorY = 'top';
+      this.offsetY = currentY;
+    } else if (yPercent < 0.67) {
+      this.anchorY = 'middle';
+      this.offsetY = currentY - canvasHeight / 2;
+    } else {
+      this.anchorY = 'bottom';
+      this.offsetY = currentY - canvasHeight;
+    }
+    
+    this.positionMode = 'anchor';
+  }
+  
+  /**
+   * 将锚点模式转换为绝对坐标
+   * @param {number} canvasWidth - 画布宽度
+   * @param {number} canvasHeight - 画布高度
+   */
+  convertToAbsolute(canvasWidth, canvasHeight) {
+    if (this.positionMode === 'absolute') return; // 已经是绝对模式
+    
+    // 计算锚点位置
+    let anchorX = 0;
+    switch (this.anchorX) {
+      case 'left': anchorX = 0; break;
+      case 'center': anchorX = canvasWidth / 2; break;
+      case 'right': anchorX = canvasWidth; break;
+    }
+    
+    let anchorY = 0;
+    switch (this.anchorY) {
+      case 'top': anchorY = 0; break;
+      case 'middle': anchorY = canvasHeight / 2; break;
+      case 'bottom': anchorY = canvasHeight; break;
+    }
+    
+    // 设置绝对坐标
+    this.x = anchorX + this.offsetX;
+    this.y = anchorY + this.offsetY;
+    this.positionMode = 'absolute';
+  }
+  
+  /**
+   * 计算当前实际坐标（用于渲染）
+   * @param {number} canvasWidth - 画布宽度
+   * @param {number} canvasHeight - 画布高度
+   * @returns {{x: number, y: number}}
+   */
+  calculatePosition(canvasWidth, canvasHeight) {
+    if (this.positionMode === 'anchor') {
+      let anchorX = 0;
+      switch (this.anchorX) {
+        case 'left': anchorX = 0; break;
+        case 'center': anchorX = canvasWidth / 2; break;
+        case 'right': anchorX = canvasWidth; break;
+      }
+      
+      let anchorY = 0;
+      switch (this.anchorY) {
+        case 'top': anchorY = 0; break;
+        case 'middle': anchorY = canvasHeight / 2; break;
+        case 'bottom': anchorY = canvasHeight; break;
+      }
+      
+      return {
+        x: anchorX + this.offsetX,
+        y: anchorY + this.offsetY
+      };
+    }
+    
+    // 绝对定位直接返回 x, y
+    return { x: this.x, y: this.y };
+  }
+  
+  /**
+   * 计算响应式尺寸（根据边界锚定）
+   * @param {number} parentWidth - 父容器宽度
+   * @param {number} parentHeight - 父容器高度
+   * @param {number} localX - 控件在父容器中的X坐标
+   * @param {number} localY - 控件在父容器中的Y坐标
+   * @returns {{ width: number, height: number }} 计算后的尺寸
+   */
+  calculateSize(parentWidth, parentHeight, localX, localY) {
+    let width = this.width;
+    let height = this.height;
+    
+    // 如果锚定了右边，计算响应式宽度
+    if (this.anchorRight) {
+      width = parentWidth - localX - this.designMarginRight;
+      if (width < 0) width = 0;
+    }
+    
+    // 如果锚定了底边，计算响应式高度
+    if (this.anchorBottom) {
+      height = parentHeight - localY - this.designMarginBottom;
+      if (height < 0) height = 0;
+    }
+    
+    return { width, height };
+  }
+  
+  /**
+   * 更新设计时边距（当启用边界锚定时调用）
+   * @param {number} canvasWidth - 画布宽度
+   * @param {number} canvasHeight - 画布高度
+   */
+  updateDesignMargins(canvasWidth, canvasHeight) {
+    // 计算控件的实际位置
+    const pos = this.calculatePosition(canvasWidth, canvasHeight);
+    
+    // 计算右边距和底边距
+    this.designMarginRight = canvasWidth - pos.x - this.width;
+    this.designMarginBottom = canvasHeight - pos.y - this.height;
+    
+    console.log(`Updated design margins: right=${this.designMarginRight}, bottom=${this.designMarginBottom}`);
+  }}
 
 // 静态属性
 Widget.typeCounters = null;

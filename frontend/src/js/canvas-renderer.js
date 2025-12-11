@@ -86,11 +86,8 @@ class CanvasRenderer {
     border.style.transform = `scale(${this.zoom})`;
     border.style.transformOrigin = 'top left';
     
-    // 更新右上角显示
-    const zoomDisplay = document.getElementById('zoom-display');
-    if (zoomDisplay) {
-      zoomDisplay.textContent = (this.zoom * 100).toFixed(0) + '%';
-    }
+    // 重新绘制以更新左上角的缩放信息
+    this.render();
     
     console.log('Canvas zoom:', (this.zoom * 100).toFixed(0) + '%');
   }
@@ -140,6 +137,12 @@ class CanvasRenderer {
       delete w.renderHeight;
     });
     
+    // 优先处理创建模式 - 如果正在创建控件，直接创建，不进行选择或拖拽
+    if (window.toolbar && window.toolbar.creatingType) {
+      window.toolbar.createWidgetAt(x, y);
+      return;
+    }
+    
     // 检查是否点击了 resize handle
     if (this.selectedID) {
       const widget = this.widgets.find(w => w.id === this.selectedID);
@@ -184,15 +187,10 @@ class CanvasRenderer {
       }
     }
 
-    // 点击空白处 - 创建模式或取消选择
-    if (window.toolbar && window.toolbar.creatingType) {
-      // 直接在画布上创建，不自动判断父子关系
-      window.toolbar.createWidgetAt(x, y);
-    } else {
-      this.selectedID = null;
-      if (window.app) {
-        window.app.selectWidget(null);
-      }
+    // 点击空白处 - 取消选择
+    this.selectedID = null;
+    if (window.app) {
+      window.app.selectWidget(null);
     }
   }
 
@@ -233,22 +231,57 @@ class CanvasRenderer {
         // 不再自动判断父子关系，只更新坐标
         // 父子关系由左侧层级树拖拽来管理
         
+        // 计算父容器信息
+        let parentX = 0;
+        let parentY = 0;
+        let parentWidth = this.canvasWidth;
+        let parentHeight = this.canvasHeight;
+        
         if (widget.parentId) {
-          // 如果有父容器，转换为相对坐标
           const parent = this.widgets.find(w => w.id === widget.parentId);
           if (parent) {
             const parentPos = this.getAbsolutePosition(parent);
-            widget.x = this.dragTempX - parentPos.x;
-            widget.y = this.dragTempY - parentPos.y;
-            
-            // 限制子控件不能超出父容器边缘
-            widget.x = Math.max(0, Math.min(parent.width - widget.width, widget.x));
-            widget.y = Math.max(0, Math.min(parent.height - widget.height, widget.y));
+            parentX = parentPos.x;
+            parentY = parentPos.y;
+            parentWidth = parent.width;
+            parentHeight = parent.height;
           }
+        }
+        
+        // 计算相对于父容器的局部坐标
+        const localX = this.dragTempX - parentX;
+        const localY = this.dragTempY - parentY;
+        
+        // 根据定位模式更新不同的属性
+        if (widget.positionMode === 'anchor') {
+          // 锚点模式：计算锚点位置，然后更新偏移值
+          let anchorX = 0;
+          switch (widget.anchorX) {
+            case 'left': anchorX = 0; break;
+            case 'center': anchorX = parentWidth / 2; break;
+            case 'right': anchorX = parentWidth; break;
+          }
+          
+          let anchorY = 0;
+          switch (widget.anchorY) {
+            case 'top': anchorY = 0; break;
+            case 'middle': anchorY = parentHeight / 2; break;
+            case 'bottom': anchorY = parentHeight; break;
+          }
+          
+          // 更新偏移值 = 局部坐标 - 锚点位置
+          widget.offsetX = Math.round(localX - anchorX);
+          widget.offsetY = Math.round(localY - anchorY);
         } else {
-          // 无父容器，使用绝对坐标
-          widget.x = this.dragTempX;
-          widget.y = this.dragTempY;
+          // 绝对定位模式：直接更新 x, y
+          widget.x = localX;
+          widget.y = localY;
+          
+          // 限制在父容器内（如果有父容器）
+          if (widget.parentId) {
+            widget.x = Math.max(0, Math.min(parentWidth - widget.width, widget.x));
+            widget.y = Math.max(0, Math.min(parentHeight - widget.height, widget.y));
+          }
         }
         
         // 清除临时渲染坐标
@@ -403,22 +436,46 @@ class CanvasRenderer {
         this.drawWidgetInfo(widget, displayX, displayY, displayWidth, displayHeight);
       }
     }
+    
+    // 绘制画布信息（左上角）
+    this.drawCanvasInfo();
   }
 
   getAbsolutePosition(widget) {
-    let x = widget.x;
-    let y = widget.y;
+    // 计算父容器的绝对位置和尺寸
+    let parentX = 0;
+    let parentY = 0;
+    let parentWidth = this.canvasWidth;
+    let parentHeight = this.canvasHeight;
     
     if (widget.parentId) {
       const parent = this.widgets.find(w => w.id === widget.parentId);
       if (parent) {
         const parentPos = this.getAbsolutePosition(parent);
-        x += parentPos.x;
-        y += parentPos.y;
+        parentX = parentPos.x;
+        parentY = parentPos.y;
+        parentWidth = parent.width;
+        parentHeight = parent.height;
       }
     }
     
-    return { x, y };
+    // 根据定位模式计算局部坐标
+    let localX, localY;
+    if (widget.positionMode === 'anchor' && widget.calculatePosition) {
+      // 锚点模式：使用 calculatePosition 方法
+      const pos = widget.calculatePosition(parentWidth, parentHeight);
+      localX = pos.x;
+      localY = pos.y;
+    } else {
+      // 绝对定位模式：直接使用 x, y
+      localX = widget.x;
+      localY = widget.y;
+    }
+    
+    return { 
+      x: parentX + localX, 
+      y: parentY + localY 
+    };
   }
 
   drawGrid() {
@@ -441,6 +498,19 @@ class CanvasRenderer {
       this.ctx.lineTo(this.canvasWidth, y);
       this.ctx.stroke();
     }
+  }
+  
+  drawCanvasInfo() {
+    const infoText = `${this.canvasWidth}x${this.canvasHeight} (${Math.round(this.zoom * 100)}%)`;
+    
+    // 设置浅淡的小字体
+    this.ctx.font = '11px system-ui, -apple-system, sans-serif';
+    this.ctx.fillStyle = 'rgba(100, 100, 100, 0.5)';
+    this.ctx.textAlign = 'left';
+    this.ctx.textBaseline = 'top';
+    
+    // 在左上角绘制，留出5px的边距
+    this.ctx.fillText(infoText, 5, 5);
   }
 
   drawWidget(widget, selected) {
@@ -913,7 +983,7 @@ class CanvasRenderer {
     }
   }
 
-  drawListBox(widget, selected) {
+  drawListView(widget, selected) {
     const { x, y, width, height, items, enabled } = widget;
     
     // 背景
@@ -1043,8 +1113,69 @@ class CanvasRenderer {
   }
 
   drawWidgetInfo(widget, displayX, displayY, displayWidth, displayHeight) {
-    // 显示原始坐标和尺寸（相对于父容器）
-    const text = `x:${Math.round(widget.x)} y:${Math.round(widget.y)} w:${Math.round(displayWidth)} h:${Math.round(displayHeight)}`;
+    let text;
+    
+    if (widget.positionMode === 'anchor') {
+      // 锚点模式：根据当前显示坐标实时计算偏移值
+      // 计算父容器信息
+      let parentX = 0;
+      let parentY = 0;
+      let parentWidth = this.canvasWidth;
+      let parentHeight = this.canvasHeight;
+      
+      if (widget.parentId) {
+        const parent = this.widgets.find(w => w.id === widget.parentId);
+        if (parent) {
+          const parentPos = this.getAbsolutePosition(parent);
+          parentX = parentPos.x;
+          parentY = parentPos.y;
+          parentWidth = parent.width;
+          parentHeight = parent.height;
+        }
+      }
+      
+      // 计算相对于父容器的局部坐标
+      const localX = displayX - parentX;
+      const localY = displayY - parentY;
+      
+      // 计算锚点位置
+      let anchorX = 0;
+      switch (widget.anchorX) {
+        case 'left': anchorX = 0; break;
+        case 'center': anchorX = parentWidth / 2; break;
+        case 'right': anchorX = parentWidth; break;
+      }
+      
+      let anchorY = 0;
+      switch (widget.anchorY) {
+        case 'top': anchorY = 0; break;
+        case 'middle': anchorY = parentHeight / 2; break;
+        case 'bottom': anchorY = parentHeight; break;
+      }
+      
+      // 计算实时偏移值 = 局部坐标 - 锚点位置
+      const currentOffsetX = Math.round(localX - anchorX);
+      const currentOffsetY = Math.round(localY - anchorY);
+      
+      const anchorCode = this.getAnchorCode(widget.anchorX, widget.anchorY);
+      text = `(${anchorCode}) ${currentOffsetX},${currentOffsetY} ${Math.round(displayWidth)}×${Math.round(displayHeight)}`;
+    } else {
+      // 绝对定位模式：显示实时坐标和尺寸
+      // 计算相对于父容器的坐标
+      let localX = displayX;
+      let localY = displayY;
+      
+      if (widget.parentId) {
+        const parent = this.widgets.find(w => w.id === widget.parentId);
+        if (parent) {
+          const parentPos = this.getAbsolutePosition(parent);
+          localX = displayX - parentPos.x;
+          localY = displayY - parentPos.y;
+        }
+      }
+      
+      text = `x:${Math.round(localX)} y:${Math.round(localY)} w:${Math.round(displayWidth)} h:${Math.round(displayHeight)}`;
+    }
     
     // 设置字体样式
     this.ctx.font = '11px Arial';
@@ -1079,6 +1210,15 @@ class CanvasRenderer {
     // 绘制文字（使用 top 基线，从背景框顶部开始绘制）
     this.ctx.fillStyle = '#fff';
     this.ctx.fillText(text, labelX + padding, labelY + 2);
+  }
+  
+  /**
+   * 获取锚点的缩写代码
+   */
+  getAnchorCode(anchorX, anchorY) {
+    const xCode = { 'left': 'L', 'center': 'C', 'right': 'R' }[anchorX] || 'L';
+    const yCode = { 'top': 'T', 'middle': 'M', 'bottom': 'B' }[anchorY] || 'T';
+    return xCode + yCode;
   }
 
   // API 方法

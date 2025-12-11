@@ -55,7 +55,9 @@ class Toolbar {
   createWidgetByType(type, x, y, parentId = null) {
     // 使用 Widget 类系统创建实例
     const WidgetClass = Widget.getWidgetClass(type);
+    console.log('Creating widget:', type, 'WidgetClass:', WidgetClass, 'at', x, y);
     const widget = new WidgetClass(x, y, parentId);
+    console.log('Created widget:', widget);
     
     // 返回实例 (已包含所有属性)
     return widget;

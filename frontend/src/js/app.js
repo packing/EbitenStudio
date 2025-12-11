@@ -542,9 +542,8 @@ class App {
       textinput: '📄',
       slider: '🎚️',
       image: '🖼️',
-      listbox: '📋',
-      gridview: '▦',
-      panel: '📦',
+      listview: '📋',
+      gridview: '▦',      tableview: '📋',      combobox: '🔽',      slider: '🎚️',      checkbox: '☑️',      radiobutton: '🔘',      panel: '📦',
     };
     return icons[type] || '📦';
   }

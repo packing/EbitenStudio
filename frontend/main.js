@@ -32,8 +32,8 @@ function createWindow() {
   const menu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(menu);
 
-  // 打开开发者工具方便调试
-  mainWindow.webContents.openDevTools();
+  // 打开开发者工具方便调试（如需调试可取消注释或使用菜单：视图 -> 切换开发者工具）
+  // mainWindow.webContents.openDevTools();
 
   // 直接加载主界面
   mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
@@ -315,5 +315,219 @@ ipcMain.handle('read-file-base64', async (event, filePath) => {
     return data.toString('base64');
   } catch (err) {
     throw new Error('Failed to read file: ' + err.message);
+  }
+});
+
+// 预览和导出相关 IPC
+ipcMain.handle('launch-viewer', async (event, jsonData) => {
+  const { spawn } = require('child_process');
+  const os = require('os');
+  
+  try {
+    // 创建临时JSON文件
+    const tempDir = os.tmpdir();
+    const tempFile = path.join(tempDir, `ui_preview_${Date.now()}.json`);
+    fs.writeFileSync(tempFile, jsonData, 'utf8');
+    
+    // 查找viewer可执行文件路径
+    const projectRoot = path.join(__dirname, '..');
+    const viewerDir = path.join(projectRoot, 'ui', 'examples', 'viewer');
+    
+    // 根据平台选择执行方式
+    let viewerCmd, viewerArgs;
+    if (process.platform === 'win32') {
+      // Windows: 检查是否有编译好的exe，否则使用go run
+      const exePath = path.join(viewerDir, 'viewer.exe');
+      if (fs.existsSync(exePath)) {
+        viewerCmd = exePath;
+        viewerArgs = ['-layout', tempFile];
+      } else {
+        viewerCmd = 'go';
+        viewerArgs = ['run', 'main.go', '-layout', tempFile];
+      }
+    } else {
+      // Linux/Mac
+      viewerCmd = 'go';
+      viewerArgs = ['run', 'main.go', '-layout', tempFile];
+    }
+    
+    // 启动viewer进程
+    const viewerProcess = spawn(viewerCmd, viewerArgs, {
+      cwd: viewerDir,
+      detached: true,
+      stdio: 'ignore'
+    });
+    
+    viewerProcess.unref();
+    
+    // 清理临时文件（延迟删除，等viewer启动后）
+    setTimeout(() => {
+      try {
+        if (fs.existsSync(tempFile)) {
+          fs.unlinkSync(tempFile);
+        }
+      } catch (err) {
+        console.error('Failed to delete temp file:', err);
+      }
+    }, 5000);
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Launch viewer error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// IPC: 启动viewer（新版本，支持pak格式）
+ipcMain.handle('launch-viewer-with-pak', async (event, { uiData, pakData, hash }) => {
+  const { spawn } = require('child_process');
+  const os = require('os');
+
+  console.log('[Main IPC] launch-viewer-with-pak called');
+  console.log('[Main IPC] uiData length:', uiData?.length);
+  console.log('[Main IPC] pakData length:', pakData?.length);
+  console.log('[Main IPC] hash:', hash);
+
+  try {
+    const tempDir = path.join(os.tmpdir(), 'ebitenstudio_preview');
+    console.log('[Main IPC] Temp dir:', tempDir);
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+      console.log('[Main IPC] Created temp dir');
+    }
+
+    const timestamp = Date.now();
+    const basename = `preview_${timestamp}`;
+    const uiFile = path.join(tempDir, `${basename}.ui`);
+    // Pak文件需要使用前8位hash作为后缀（与loader.go的约定）
+    const hashPrefix = hash.substring(0, 8);
+    const pakFile = path.join(tempDir, `${basename}_${hashPrefix}.pak`);
+    console.log('[Main IPC] UI file:', uiFile);
+    console.log('[Main IPC] PAK file:', pakFile);
+
+    // 写入 .ui 文件
+    fs.writeFileSync(uiFile, uiData, 'utf8');
+    console.log('[Main IPC] UI file written');
+
+    // 写入 .pak 文件
+    const pakBuffer = Buffer.from(pakData);
+    fs.writeFileSync(pakFile, pakBuffer);
+    console.log('[Main IPC] PAK file written, size:', pakBuffer.length);
+
+    // 查找viewer可执行文件路径
+    const projectRoot = path.join(__dirname, '..');
+    const viewerDir = path.join(projectRoot, 'ui', 'examples', 'viewer');
+    
+    // 根据平台选择执行方式
+    let viewerCmd, viewerArgs;
+    if (process.platform === 'win32') {
+      // Windows: 检查是否有编译好的exe，否则使用go run
+      const exePath = path.join(viewerDir, 'viewer.exe');
+      console.log('[Main IPC] Checking for exe:', exePath);
+      if (fs.existsSync(exePath)) {
+        viewerCmd = exePath;
+        viewerArgs = ['-silent', '-layout', uiFile];
+        console.log('[Main IPC] Using exe');
+      } else {
+        viewerCmd = 'go';
+        viewerArgs = ['run', 'main.go', '-silent', '-layout', uiFile];
+        console.log('[Main IPC] Using go run');
+      }
+    } else {
+      // Linux/Mac
+      viewerCmd = 'go';
+      viewerArgs = ['run', 'main.go', '-silent', '-layout', uiFile];
+    }
+    
+    console.log('[Main IPC] Launching viewer:', viewerCmd, viewerArgs);
+    // 启动viewer进程
+    const viewerProcess = spawn(viewerCmd, viewerArgs, {
+      cwd: viewerDir,
+      detached: true,
+      stdio: 'inherit'
+    });
+    
+    console.log('[Main IPC] Viewer process spawned, PID:', viewerProcess.pid);
+    viewerProcess.unref();
+    
+    // 清理临时文件（延迟删除，等viewer启动后）
+    setTimeout(() => {
+      try {
+        if (fs.existsSync(uiFile)) fs.unlinkSync(uiFile);
+        if (fs.existsSync(pakFile)) fs.unlinkSync(pakFile);
+      } catch (err) {
+        console.error('Failed to delete temp files:', err);
+      }
+    }, 10000);
+
+    return { success: true };
+  } catch (error) {
+    console.error('启动 viewer 失败:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('save-json-file', async (event, jsonData, defaultName) => {
+  try {
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: '导出UI布局',
+      defaultPath: defaultName || 'layout.json',
+      filters: [
+        { name: 'JSON Files', extensions: ['json'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    });
+    
+    if (result.canceled) {
+      return { cancelled: true };
+    }
+    
+    fs.writeFileSync(result.filePath, jsonData, 'utf8');
+    return { success: true, filePath: result.filePath };
+  } catch (error) {
+    console.error('Save JSON file error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// 导出UI包（.ui + .pak）
+ipcMain.handle('export-ui-package', async (event, packageData) => {
+  try {
+    const { uiData, pakData, hash } = packageData;
+    
+    // 选择保存位置
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: '导出UI包',
+      defaultPath: 'ui_layout.ui',
+      filters: [
+        { name: 'UI Files', extensions: ['ui'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    });
+    
+    if (result.canceled) {
+      return { cancelled: true };
+    }
+    
+    const uiPath = result.filePath;
+    const baseName = path.basename(uiPath, '.ui');
+    const dirName = path.dirname(uiPath);
+    const pakPath = path.join(dirName, `${baseName}_${hash.substring(0, 8)}.pak`);
+    
+    // 保存.ui文件
+    fs.writeFileSync(uiPath, uiData, 'utf8');
+    
+    // 保存.pak文件
+    const pakBuffer = Buffer.from(pakData);
+    fs.writeFileSync(pakPath, pakBuffer);
+    
+    return {
+      success: true,
+      uiPath: uiPath,
+      pakPath: pakPath
+    };
+  } catch (error) {
+    console.error('Export UI package error:', error);
+    return { success: false, error: error.message };
   }
 });

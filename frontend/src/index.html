@@ -23,17 +23,29 @@
         <button class="tool-btn" id="btn-create-textinput" data-type="textinput">
           <span>📄</span> 输入框
         </button>
-        <button class="tool-btn" id="btn-create-slider" data-type="slider">
-          <span>🎚️</span> 滑动条
-        </button>
         <button class="tool-btn" id="btn-create-image" data-type="image">
           <span>🖼️</span> 图像
         </button>
-        <button class="tool-btn" id="btn-create-listbox" data-type="listbox">
-          <span>📋</span> 列表框
+        <button class="tool-btn" id="btn-create-listview" data-type="listview">
+          <span>📋</span> 列表视图
         </button>
         <button class="tool-btn" id="btn-create-gridview" data-type="gridview">
           <span>▦</span> 网格视图
+        </button>
+        <button class="tool-btn" id="btn-create-tableview" data-type="tableview">
+          <span>📋</span> 表格视图
+        </button>
+        <button class="tool-btn" id="btn-create-combobox" data-type="combobox">
+          <span>🔽</span> 下拉框
+        </button>
+        <button class="tool-btn" id="btn-create-slider" data-type="slider">
+          <span>🎚️</span> 滑动条
+        </button>
+        <button class="tool-btn" id="btn-create-checkbox" data-type="checkbox">
+          <span>☑️</span> 复选框
+        </button>
+        <button class="tool-btn" id="btn-create-radiobutton" data-type="radiobutton">
+          <span>🔘</span> 单选按钮
         </button>
         <button class="tool-btn" id="btn-create-panel" data-type="panel">
           <span>📦</span> 面板
@@ -44,7 +56,12 @@
         </button>
       </div>
       <div class="toolbar-section">
-        <span class="status" id="zoom-display">100%</span>
+        <button class="tool-btn primary" id="btn-preview">
+          <span>▶️</span> 预览
+        </button>
+        <button class="tool-btn" id="btn-export">
+          <span>💾</span> 导出
+        </button>
       </div>
     </header>
 
@@ -101,6 +118,12 @@
     </div>
   </div>
 
+  <!-- 加载提示 overlay -->
+  <div id="loading-overlay" style="display: none;">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">正在处理...</div>
+  </div>
+
   <!-- 不再需要 API 连接和 WASM -->
   <script src="js/widgets/base.js"></script>
   <script src="js/widgets/types.js"></script>
@@ -110,6 +133,8 @@
   <script src="js/toolbar.js"></script>
   <script src="js/resource-manager.js"></script>
   <script src="js/sidebar-resizer.js"></script>
+  <script src="js/resource-packer.js"></script>
+  <script src="js/preview.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

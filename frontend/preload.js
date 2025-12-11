@@ -25,4 +25,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Resource management
   selectFile: (filters) => ipcRenderer.invoke('select-file', filters),
   readFileAsBase64: (filePath) => ipcRenderer.invoke('read-file-base64', filePath),
+  
+  // Preview and export
+  launchViewer: (jsonData) => ipcRenderer.invoke('launch-viewer', jsonData),
+  launchViewerWithPak: (packageData) => ipcRenderer.invoke('launch-viewer-with-pak', packageData),
+  saveJsonFile: (jsonData, defaultName) => ipcRenderer.invoke('save-json-file', jsonData, defaultName),
+  exportUIPackage: (packageData) => ipcRenderer.invoke('export-ui-package', packageData),
 });

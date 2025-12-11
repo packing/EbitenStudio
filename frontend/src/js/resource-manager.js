@@ -189,6 +189,11 @@ class ResourceManager {
       this.resources[type].push(resource);
       this.renderResourceList();
       
+      // 刷新属性面板中的资源选择器
+      if (window.propertiesPanel) {
+        window.propertiesPanel.refreshResourcePickers();
+      }
+      
       // 标记项目为已修改
       if (window.app) {
         window.app.markDirty();
@@ -261,6 +266,11 @@ class ResourceManager {
     if (index !== -1) {
       resources.splice(index, 1);
       this.renderResourceList();
+      
+      // 刷新属性面板中的资源选择器
+      if (window.propertiesPanel) {
+        window.propertiesPanel.refreshResourcePickers();
+      }
       
       if (window.app) {
         window.app.markDirty();
