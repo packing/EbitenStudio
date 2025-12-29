@@ -12,7 +12,7 @@ EbitenStudio (Electron App)
 │   ├── Monaco Editor        ← Phase 6实现
 │   ├── Canvas UI Renderer
 │   └── Properties Panel
-├── Backend (Go)
+├── UI Runtime (Go)
 │   ├── UI Control Library
 │   ├── Script Engine (goja)
 │   └── TypeScript Generator ← Phase 5已完成

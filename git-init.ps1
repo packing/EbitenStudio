@@ -42,12 +42,12 @@ Write-Host "✓ 已添加 $fileCount 个文件" -ForegroundColor Green
 
 # 提交
 Write-Host "`n[4/5] 提交更改..." -ForegroundColor Yellow
-git commit -m "Initial commit: Complete EbitenStudio architecture
+git commit -m "Initial commit: EbitenStudio UI Editor
 
-- Backend: Go + Gin + Ebiten Canvas
 - Frontend: Electron + Vanilla JS
-- Features: REST API + WebSocket real-time sync
-- Architecture: Dual-window design (Editor + Canvas)
+- UI Runtime: Go + Ebiten v2
+- Script System: TypeScript + Goja VM
+- Features: Visual editor + Live preview + Script integration
 "
 Write-Host "✓ 提交完成" -ForegroundColor Green
 

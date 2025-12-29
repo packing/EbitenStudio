@@ -2,15 +2,11 @@
 
 This directory contains static files loaded by Electron:
 
-- `canvas.wasm` - Ebiten Canvas compiled to WebAssembly
-- `wasm_exec.js` - Go WASM runtime (from Go SDK)
-- `app.config.js` - Application configuration (if needed)
+- `app.config.js` - Application configuration
+- `gameAssets/` - Game asset resources
+- Other static resources as needed
 
-## Building WASM
+## 说明
 
-```powershell
-cd ../backend/canvas_wasm
-.\build.ps1
-```
-
-This will compile and copy the WASM files to this directory.
+此目录存放 Electron 应用需要的静态资源文件。
+前端编辑器的资源文件统一存放在这里，方便管理和访问。

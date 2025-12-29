@@ -94,7 +94,7 @@ EbitenStudio (Electron App)
 ├── Main Process
 │   ├── Menu & IPC
 │   └── File Operations
-└── Backend (Go)
+└── UI Runtime (Go)
     ├── UI Library
     ├── TypeScript Generator
     └── Script Engine
@@ -105,7 +105,7 @@ EbitenStudio (Electron App)
 ```
 1. UI设计器设计界面
    ↓
-2. Go后端生成类型定义 (ui_types.d.ts)
+2. Go运行时生成类型定义 (ui_types.d.ts)
    ↓
 3. Monaco Editor加载类型定义
    ↓
