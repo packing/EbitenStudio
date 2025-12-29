@@ -89,7 +89,10 @@ npm start
 ```bash
 cd ui/examples/viewer
 go build -o viewer.exe  # Windows
-go 📁 项目结构
+go build -o viewer      # Linux/macOS
+```
+
+## 📁 项目结构
 
 ```
 EbitenStudio/
