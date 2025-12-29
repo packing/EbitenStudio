@@ -1,0 +1,140 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #1e1e1e;
+    color: #d4d4d4;
+    overflow: hidden;
+}
+
+.editor-container {
+    display: flex;
+    height: calc(100vh - 40px);
+}
+
+/* 侧边栏 */
+.sidebar {
+    width: 200px;
+    background: #252526;
+    border-right: 1px solid #3e3e42;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar h3 {
+    padding: 10px;
+    background: #2d2d30;
+    font-size: 14px;
+    border-bottom: 1px solid #3e3e42;
+}
+
+#script-list {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.script-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    border-bottom: 1px solid #2d2d30;
+}
+
+.script-item:hover {
+    background: #2a2d2e;
+}
+
+.script-item.active {
+    background: #094771;
+    color: #fff;
+}
+
+.sidebar-buttons {
+    padding: 10px;
+    border-top: 1px solid #3e3e42;
+}
+
+.sidebar-buttons button {
+    width: 100%;
+    padding: 6px;
+    margin-bottom: 5px;
+    background: #0e639c;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.sidebar-buttons button:hover {
+    background: #1177bb;
+}
+
+/* 编辑器区域 */
+.editor-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+#editor-container {
+    flex: 1;
+}
+
+.status-bar {
+    height: 24px;
+    background: #007acc;
+    color: white;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    font-size: 12px;
+}
+
+.status-bar span {
+    margin-right: 20px;
+}
+
+/* 工具栏 */
+.toolbar {
+    height: 40px;
+    background: #2d2d30;
+    border-top: 1px solid #3e3e42;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    gap: 10px;
+}
+
+.toolbar button {
+    padding: 6px 12px;
+    background: #0e639c;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.toolbar button:hover {
+    background: #1177bb;
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+    width: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: #1e1e1e;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #424242;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #4e4e4e;
+}

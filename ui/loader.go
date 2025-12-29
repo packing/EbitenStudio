@@ -39,13 +39,15 @@ type Loader struct {
 	pakData      []byte
 	manifest     *ResourceManifest
 	pakHash      string
-	resourcePath string // UI文件所在目录
+	resourcePath string            // UI文件所在目录
+	scripts      map[string]string // 脚本数据：widgetID -> scriptCode
 }
 
 // NewLoader 创建加载器
 func NewLoader() *Loader {
 	return &Loader{
 		imageCache: make(map[string]*ebiten.Image),
+		scripts:    make(map[string]string),
 	}
 }
 
@@ -112,6 +114,17 @@ func (l *Loader) LoadFromData(data map[string]interface{}) ([]Widget, error) {
 		l.manifest = l.parseManifest(manifestData)
 	}
 
+	// 解析脚本数据（如果有）
+	if scriptsData, ok := data["scripts"].(map[string]interface{}); ok {
+		for widgetID, scriptCode := range scriptsData {
+			if codeStr, ok := scriptCode.(string); ok {
+				l.scripts[widgetID] = codeStr
+				log.Printf("[Loader] Loaded script for widget: %s (length: %d)", widgetID, len(codeStr))
+			}
+		}
+		log.Printf("[Loader] Total scripts loaded: %d", len(l.scripts))
+	}
+
 	// 解析widgets数组
 	widgetsData, ok := data["widgets"].([]interface{})
 	if !ok {
@@ -156,6 +169,11 @@ func (l *Loader) LoadFromData(data map[string]interface{}) ([]Widget, error) {
 	}
 
 	return rootWidgets, nil
+}
+
+// GetScripts 获取所有脚本数据
+func (l *Loader) GetScripts() map[string]string {
+	return l.scripts
 }
 
 // parseManifest 解析资源清单

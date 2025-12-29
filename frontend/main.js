@@ -43,6 +43,24 @@ function createWindow() {
   });
 }
 
+// 打开脚本编辑器
+function openScriptEditor() {
+  const editorWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
+    }
+  });
+
+  editorWindow.loadFile(path.join(__dirname, 'src', 'script-editor.html'));
+  
+  // 开发时打开开发者工具
+  // editorWindow.webContents.openDevTools();
+}
+
 app.on('ready', () => {
   createWindow();
 });
@@ -214,6 +232,18 @@ function getMenuTemplate() {
         },
         { type: 'separator' },
         { role: 'toggleDevTools' }
+      ]
+    },
+    {
+      label: 'Tools',
+      submenu: [
+        {
+          label: 'Script Editor',
+          accelerator: 'CmdOrCtrl+E',
+          click: () => {
+            openScriptEditor();
+          }
+        }
       ]
     }
   ];
@@ -443,12 +473,34 @@ ipcMain.handle('launch-viewer-with-pak', async (event, { uiData, pakData, hash }
     // 启动viewer进程
     const viewerProcess = spawn(viewerCmd, viewerArgs, {
       cwd: viewerDir,
-      detached: true,
-      stdio: 'inherit'
+      detached: false,  // 改为false以便捕获输出
+      stdio: ['ignore', 'pipe', 'pipe']  // 捕获stdout和stderr
     });
     
     console.log('[Main IPC] Viewer process spawned, PID:', viewerProcess.pid);
-    viewerProcess.unref();
+    
+    // 捕获viewer的stdout输出
+    viewerProcess.stdout.on('data', (data) => {
+      console.log('[Viewer stdout]:', data.toString());
+    });
+    
+    // 捕获viewer的stderr输出
+    viewerProcess.stderr.on('data', (data) => {
+      console.error('[Viewer stderr]:', data.toString());
+    });
+    
+    // 监听进程退出
+    viewerProcess.on('exit', (code, signal) => {
+      console.log(`[Main IPC] Viewer process exited with code ${code}, signal ${signal}`);
+    });
+    
+    // 监听错误
+    viewerProcess.on('error', (err) => {
+      console.error('[Main IPC] Viewer process error:', err);
+    });
+    
+    // 不再使用 unref，让进程保持关联
+    // viewerProcess.unref();
     
     // 清理临时文件（延迟删除，等viewer启动后）
     setTimeout(() => {
@@ -463,6 +515,172 @@ ipcMain.handle('launch-viewer-with-pak', async (event, { uiData, pakData, hash }
     return { success: true };
   } catch (error) {
     console.error('启动 viewer 失败:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// 初始化 scripts 目录的 TypeScript 项目结构
+async function ensureScriptsTypeScriptProject(scriptsDir) {
+  try {
+    // 检查 tsconfig.json
+    const tsconfigPath = path.join(scriptsDir, 'tsconfig.json');
+    if (!fs.existsSync(tsconfigPath)) {
+      console.log('[Main IPC] Creating tsconfig.json in scripts directory');
+      const tsconfig = {
+        compilerOptions: {
+          target: "ES2015",
+          module: "none",
+          outDir: "./dist",
+          removeComments: true,
+          skipLibCheck: true,
+          strict: false,
+          noEmit: false,
+          allowJs: true,
+          moduleResolution: "node",
+          esModuleInterop: false,
+          allowSyntheticDefaultImports: false
+        },
+        include: ["**/*.ts"],
+        exclude: ["node_modules", "dist"]
+      };
+      fs.writeFileSync(tsconfigPath, JSON.stringify(tsconfig, null, 2));
+    }
+    
+    // 检查并复制 ui_types.d.ts
+    const dtsPath = path.join(scriptsDir, 'ui_types.d.ts');
+    if (!fs.existsSync(dtsPath)) {
+      console.log('[Main IPC] Creating ui_types.d.ts in scripts directory');
+      const projectRoot = path.join(__dirname, '..');
+      const sourceDtsPath = path.join(projectRoot, 'scripts_example', 'ui_types.d.ts');
+      
+      if (fs.existsSync(sourceDtsPath)) {
+        fs.copyFileSync(sourceDtsPath, dtsPath);
+        console.log('[Main IPC] Copied ui_types.d.ts from scripts_example');
+      } else {
+        // 如果找不到源文件，创建一个基础的类型声明
+        const basicDts = `// UI Widget Types
+interface UIButton {
+  setText(text: string): void;
+  setVisible(visible: boolean): void;
+  setColor(r: number, g: number, b: number, a: number): void;
+}
+
+interface ButtonClickEvent {
+  x: number;
+  y: number;
+  button: number;
+}
+
+interface HoverEvent {
+  x: number;
+  y: number;
+}
+
+declare const console: {
+  log(...args: any[]): void;
+  error(...args: any[]): void;
+  warn(...args: any[]): void;
+};
+`;
+        fs.writeFileSync(dtsPath, basicDts);
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('[Main IPC] Failed to ensure TypeScript project:', error);
+    return false;
+  }
+}
+
+// 编译 TypeScript 文件到 JavaScript
+ipcMain.handle('compile-typescript', async (event, tsFilePath) => {
+  const { spawn } = require('child_process');
+  
+  try {
+    console.log('[Main IPC] Compiling TypeScript:', tsFilePath);
+    
+    // 确保 scripts 目录有 TypeScript 项目结构
+    const scriptsDir = path.dirname(tsFilePath);
+    await ensureScriptsTypeScriptProject(scriptsDir);
+    
+    // 创建输出目录
+    const distDir = path.join(scriptsDir, 'dist');
+    if (!fs.existsSync(distDir)) {
+      fs.mkdirSync(distDir, { recursive: true });
+    }
+    
+    const baseName = path.basename(tsFilePath, '.ts');
+    const outputPath = path.join(distDir, `${baseName}.js`);
+    
+    // 找到 tsc 的路径
+    const tscPath = path.join(__dirname, 'node_modules', '.bin', process.platform === 'win32' ? 'tsc.cmd' : 'tsc');
+    console.log('[Main IPC] Using tsc at:', tscPath);
+    
+    // 使用项目的 tsconfig.json 编译
+    return new Promise((resolve, reject) => {
+      const tsc = spawn(tscPath, [
+        '--project', scriptsDir,
+        '--outDir', distDir
+      ], {
+        shell: true,
+        cwd: scriptsDir  // 在 scripts 目录下执行，这样会使用那里的 tsconfig.json
+      });
+      
+      let stderr = '';
+      let stdout = '';
+      
+      tsc.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+      
+      tsc.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+      
+      tsc.on('close', (code) => {
+        console.log('[Main IPC] tsc exited with code:', code);
+        if (stdout) console.log('[Main IPC] tsc stdout:', stdout);
+        if (stderr) console.log('[Main IPC] tsc stderr:', stderr);
+        
+        // 编译成功时 code 为 0，但即使有 warnings 也可能生成文件
+        // 检查输出文件是否存在
+        if (fs.existsSync(outputPath)) {
+          const jsCode = fs.readFileSync(outputPath, 'utf8');
+          console.log('[Main IPC] TypeScript compiled successfully, output length:', jsCode.length);
+          
+          resolve({ success: true, code: jsCode });
+        } else {
+          // 如果没有找到输出文件，列出 dist 目录的内容来调试
+          console.log('[Main IPC] Output file not found at:', outputPath);
+          if (fs.existsSync(distDir)) {
+            const files = fs.readdirSync(distDir);
+            console.log('[Main IPC] Files in dist directory:', files);
+            
+            // 尝试读取第一个 .js 文件
+            const jsFiles = files.filter(f => f.endsWith('.js'));
+            if (jsFiles.length > 0) {
+              const firstJsPath = path.join(distDir, jsFiles[0]);
+              const jsCode = fs.readFileSync(firstJsPath, 'utf8');
+              console.log('[Main IPC] Found alternative JS file:', jsFiles[0], 'length:', jsCode.length);
+              resolve({ success: true, code: jsCode });
+              return;
+            }
+          }
+          
+          const errorMsg = stderr || stdout || 'Compilation failed - no output file generated';
+          console.error('[Main IPC] TypeScript compilation failed:', errorMsg);
+          reject(new Error(errorMsg));
+        }
+      });
+      
+      tsc.on('error', (err) => {
+        console.error('[Main IPC] Failed to spawn tsc:', err);
+        reject(err);
+      });
+    });
+  } catch (error) {
+    console.error('[Main IPC] TypeScript compilation error:', error);
     return { success: false, error: error.message };
   }
 });
@@ -530,4 +748,127 @@ ipcMain.handle('export-ui-package', async (event, packageData) => {
     console.error('Export UI package error:', error);
     return { success: false, error: error.message };
   }
+});
+
+// ============ Script Editor IPC Handlers ============
+
+// 读取目录
+ipcMain.handle('read-dir', async (event, dirPath) => {
+  try {
+    // 如果是绝对路径，直接使用；否则相对于 __dirname
+    const fullPath = path.isAbsolute(dirPath) ? dirPath : path.join(__dirname, dirPath);
+    const files = await fs.promises.readdir(fullPath);
+    return files;
+  } catch (error) {
+    console.error('Read directory error:', error);
+    throw error;
+  }
+});
+
+// 读取文件
+ipcMain.handle('read-file', async (event, filePath) => {
+  try {
+    // 如果是绝对路径，直接使用；否则相对于 __dirname
+    const fullPath = path.isAbsolute(filePath) ? filePath : path.join(__dirname, filePath);
+    const content = await fs.promises.readFile(fullPath, 'utf-8');
+    return content;
+  } catch (error) {
+    console.error('Read file error:', error);
+    throw error;
+  }
+});
+
+// 写入文件
+ipcMain.handle('write-file', async (event, filePath, content) => {
+  try {
+    // 如果是绝对路径，直接使用；否则相对于 __dirname
+    const fullPath = path.isAbsolute(filePath) ? filePath : path.join(__dirname, filePath);
+    await fs.promises.writeFile(fullPath, content, 'utf-8');
+    return { success: true };
+  } catch (error) {
+    console.error('Write file error:', error);
+    throw error;
+  }
+});
+
+// 删除文件
+ipcMain.handle('delete-file', async (event, filePath) => {
+  try {
+    // 如果是绝对路径，直接使用；否则相对于 __dirname
+    const fullPath = path.isAbsolute(filePath) ? filePath : path.join(__dirname, filePath);
+    await fs.promises.unlink(fullPath);
+    return { success: true };
+  } catch (error) {
+    console.error('Delete file error:', error);
+    throw error;
+  }
+});
+
+// 确保目录存在
+ipcMain.handle('ensure-dir', async (event, dirPath) => {
+  try {
+    // 如果是绝对路径，直接使用；否则相对于 __dirname
+    const fullPath = path.isAbsolute(dirPath) ? dirPath : path.join(__dirname, dirPath);
+    await fs.promises.mkdir(fullPath, { recursive: true });
+    return { success: true };
+  } catch (error) {
+    console.error('Ensure directory error:', error);
+    throw error;
+  }
+});
+
+// ============ External Editor Integration ============
+
+const { spawn } = require('child_process');
+const { shell } = require('electron');
+
+// 打开外部编辑器
+ipcMain.handle('open-external-editor', async (event, command, args) => {
+  try {
+    // 使用spawn启动外部进程
+    const child = spawn(command, args, { 
+      detached: true, 
+      stdio: 'ignore',
+      shell: true // Windows需要shell
+    });
+    
+    // 允许子进程独立运行
+    child.unref();
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to open external editor:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// 使用系统默认程序打开文件
+ipcMain.handle('open-with-default', async (event, filePath) => {
+  try {
+    const fullPath = path.join(__dirname, filePath);
+    const result = await shell.openPath(fullPath);
+    
+    if (result) {
+      // 如果返回非空字符串，表示有错误
+      return { success: false, error: result };
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to open with default:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Path utilities (for renderer process to use Node's path module)
+ipcMain.handle('path-dirname', (event, filePath) => {
+  return path.dirname(filePath);
+});
+
+ipcMain.handle('path-join', (event, ...paths) => {
+  return path.join(...paths);
+});
+
+ipcMain.handle('path-basename', (event, filePath, ext) => {
+  return path.basename(filePath, ext);
 });

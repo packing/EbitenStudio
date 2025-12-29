@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"sort"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -21,14 +22,18 @@ const (
 
 // Game 游戏主结构
 type Game struct {
-	width         int
-	height        int
-	currentWidth  int // 当前窗口宽度
-	currentHeight int // 当前窗口高度
-	renderer      *ui.Renderer
-	loader        *ui.Loader
-	rootPanel     *ui.PanelWidget
-	widgets       []ui.Widget
+	width          int
+	height         int
+	currentWidth   int // 当前窗口宽度
+	currentHeight  int // 当前窗口高度
+	renderer       *ui.Renderer
+	loader         *ui.Loader
+	rootPanel      *ui.PanelWidget
+	widgets        []ui.Widget
+	scriptEngine   *ui.ScriptEngine
+	eventQueue     *ui.EventQueue
+	commandQueue   *ui.CommandQueue
+	isMousePressed bool // 鼠标按下状态
 }
 
 // NewGame 创建游戏实例
@@ -40,7 +45,13 @@ func NewGame(layoutFile string) (*Game, error) {
 		currentHeight: defaultHeight,
 		renderer:      ui.NewRenderer(),
 		loader:        ui.NewLoader(),
+		eventQueue:    ui.NewEventQueue(),
+		commandQueue:  ui.NewCommandQueue(),
 	}
+
+	// 初始化脚本引擎
+	engineConfig := ui.DefaultScriptEngineConfig()
+	g.scriptEngine = ui.NewScriptEngine(g.eventQueue, g.commandQueue, engineConfig)
 
 	// 加载UI布局
 	if layoutFile != "" {
@@ -48,9 +59,16 @@ func NewGame(layoutFile string) (*Game, error) {
 			return nil, fmt.Errorf("failed to load layout: %w", err)
 		}
 	} else {
-		// 创建默认UI
-		g.createDefaultUI()
+		// 没有布局文件时创建空白 UI
+		log.Println("No layout file specified, starting with empty UI")
 	}
+
+	// 启动脚本引擎
+	log.Println("[Viewer] Starting ScriptEngine...")
+	if err := g.scriptEngine.Start(); err != nil {
+		return nil, fmt.Errorf("failed to start script engine: %w", err)
+	}
+	log.Println("[Viewer] ScriptEngine started successfully")
 
 	return g, nil
 }
@@ -87,104 +105,202 @@ func (g *Game) loadLayout(filename string) error {
 	}
 
 	g.widgets = widgets
+
+	// 加载脚本并注册到引擎
+	scripts := g.loader.GetScripts()
+	log.Printf("[Viewer] Loading %d scripts", len(scripts))
+
+	for widgetID, scriptCode := range scripts {
+		if err := g.scriptEngine.LoadScript(widgetID, scriptCode); err != nil {
+			log.Printf("[Viewer] Warning: Failed to load script for %s: %v", widgetID, err)
+			continue
+		}
+		log.Printf("[Viewer] Loaded script for %s (length: %d)", widgetID, len(scriptCode))
+
+		// 查找对应的控件
+		widget := g.findWidgetByID(widgetID)
+		if widget == nil {
+			log.Printf("[Viewer] Warning: Widget %s not found for script", widgetID)
+			continue
+		}
+
+		// 创建脚本绑定
+		binding := &ui.WidgetScriptBinding{
+			WidgetID:   widgetID,
+			ScriptPath: widgetID, // 使用 widgetID 作为脚本路径
+			Handlers:   g.detectHandlers(widgetID, widget.GetType()),
+			WidgetType: widget.GetType(),
+		}
+
+		// 注册控件到脚本引擎
+		if err := g.scriptEngine.RegisterWidget(widgetID, binding); err != nil {
+			log.Printf("[Viewer] Warning: Failed to register widget %s: %v", widgetID, err)
+		} else {
+			log.Printf("[Viewer] Registered widget %s with %d event handlers", widgetID, len(binding.Handlers))
+		}
+	}
+
 	return nil
 }
 
-// createDefaultUI 创建默认测试UI
-func (g *Game) createDefaultUI() {
-	// 创建根面板
-	g.rootPanel = ui.NewPanel("root")
-	g.rootPanel.X = 0
-	g.rootPanel.Y = 0
-	g.rootPanel.Width = g.width
-	g.rootPanel.Height = g.height
-	g.rootPanel.BackgroundColor = ui.RGBA{R: 40, G: 44, B: 52, A: 255}
-	g.rootPanel.BackgroundAlpha = 255
+// detectHandlers 检测脚本中定义的事件处理函数
+func (g *Game) detectHandlers(widgetID string, widgetType ui.WidgetType) map[ui.EventType]string {
+	handlers := make(map[ui.EventType]string)
 
-	// 创建标题标签
-	titleLabel := ui.NewLabel("title")
-	titleLabel.X = 100
-	titleLabel.Y = 50
-	titleLabel.Width = 400
-	titleLabel.Height = 60
-	titleLabel.Text = "Ebiten UI Viewer"
-	titleLabel.FontSize = 32
-	titleLabel.TextAlignment = "center"
-	titleLabel.TextColor = ui.RGBA{R: 255, G: 255, B: 255, A: 255}
-	titleLabel.TextColorAlpha = 255
-	g.rootPanel.AddChild(titleLabel)
+	// 根据控件类型添加常见事件
+	// 这里简化实现，假设脚本对象名就是 widgetID
+	// 实际的处理函数名是 widgetID.onClick, widgetID.onHover 等
 
-	// 创建按钮1
-	btn1 := ui.NewButton("btn1")
-	btn1.X = 100
-	btn1.Y = 150
-	btn1.Width = 150
-	btn1.Height = 45
-	btn1.Text = "Normal Button"
-	btn1.BorderRadius = 8
-	g.rootPanel.AddChild(btn1)
+	switch widgetType {
+	case ui.TypeButton:
+		handlers[ui.EventClick] = widgetID + ".onClick"
+		// 可以添加其他事件，如 hover
+	case ui.TypeTextInput:
+		handlers[ui.EventClick] = widgetID + ".onClick"
+		handlers[ui.EventChange] = widgetID + ".onChange"
+	default:
+		// 默认至少支持点击事件
+		handlers[ui.EventClick] = widgetID + ".onClick"
+	}
 
-	// 创建按钮2（禁用状态）
-	btn2 := ui.NewButton("btn2")
-	btn2.X = 270
-	btn2.Y = 150
-	btn2.Width = 150
-	btn2.Height = 45
-	btn2.Text = "Disabled"
-	btn2.SetEnabled(false)
-	btn2.BorderRadius = 8
-	g.rootPanel.AddChild(btn2)
-
-	// 创建文本输入框
-	textInput := ui.NewTextInput("input1")
-	textInput.X = 100
-	textInput.Y = 220
-	textInput.Width = 320
-	textInput.Height = 40
-	textInput.PlaceholderText = "Enter your text here..."
-	textInput.BorderWidth = 1
-	textInput.BorderColor = ui.RGBA{R: 100, G: 100, B: 100, A: 255}
-	textInput.BorderAlpha = 255
-	textInput.BorderRadius = 4
-	g.rootPanel.AddChild(textInput)
-
-	// 创建标签
-	infoLabel := ui.NewLabel("info")
-	infoLabel.X = 100
-	infoLabel.Y = 280
-	infoLabel.Width = 600
-	infoLabel.Height = 100
-	infoLabel.Text = "This is a UI viewer for Ebiten.\nClick buttons and type in the text field to test interactivity."
-	infoLabel.TextAlignment = "left"
-	infoLabel.VerticalAlign = "top"
-	infoLabel.TextColor = ui.RGBA{R: 200, G: 200, B: 200, A: 255}
-	infoLabel.TextColorAlpha = 255
-	infoLabel.WordWrap = true
-	g.rootPanel.AddChild(infoLabel)
-
-	// 创建圆形按钮示例
-	circleBtn := ui.NewButton("circleBtn")
-	circleBtn.X = 100
-	circleBtn.Y = 400
-	circleBtn.Width = 128
-	circleBtn.Height = 128
-	circleBtn.Text = "Circle"
-	circleBtn.BorderRadius = 64 // 圆形
-	circleBtn.BackgroundColorNormal = ui.RGBA{R: 255, G: 100, B: 100, A: 255}
-	circleBtn.BackgroundColorNormalAlpha = 255
-	circleBtn.BackgroundColorPressed = ui.RGBA{R: 200, G: 50, B: 50, A: 255}
-	circleBtn.BackgroundColorPressedAlpha = 255
-	g.rootPanel.AddChild(circleBtn)
-
-	g.widgets = []ui.Widget{g.rootPanel}
+	return handlers
 }
 
 // Update 更新游戏状态
 func (g *Game) Update() error {
+	// 检测鼠标点击事件
+	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+		if !g.isMousePressed {
+			g.isMousePressed = true
+			mx, my := ebiten.CursorPosition()
+			g.handleMouseClick(mx, my)
+		}
+	} else {
+		g.isMousePressed = false
+	}
+
 	// 更新所有控件
 	for _, widget := range g.widgets {
 		if err := widget.Update(); err != nil {
 			return err
+		}
+	}
+
+	// 处理命令队列（脚本引擎产生的命令）
+	commands := g.commandQueue.PopAll()
+	if len(commands) > 0 {
+		log.Printf("[Viewer] Processing %d commands from queue", len(commands))
+	}
+	for _, cmd := range commands {
+		g.executeCommand(cmd)
+	}
+
+	return nil
+}
+
+// handleMouseClick 处理鼠标点击，触发对应的脚本事件
+func (g *Game) handleMouseClick(x, y int) {
+	log.Printf("[Viewer] handleMouseClick called at (%d, %d)", x, y)
+
+	// 查找被点击的控件
+	clicked := g.findClickedWidget(g.widgets, x, y)
+	if clicked != nil {
+		widgetID := clicked.GetID()
+		log.Printf("[Viewer] Widget clicked: %s at (%d, %d)", widgetID, x, y)
+
+		// 推送点击事件到事件队列
+		event := ui.WidgetEvent{
+			Type:      ui.EventClick,
+			WidgetID:  widgetID,
+			Widget:    clicked,
+			X:         x,
+			Y:         y,
+			Button:    0,
+			Timestamp: time.Now(),
+		}
+		g.eventQueue.Push(event)
+		log.Printf("[Viewer] Event pushed to queue for widget %s", widgetID)
+	}
+}
+
+// findClickedWidget 递归查找被点击的控件
+func (g *Game) findClickedWidget(widgets []ui.Widget, x, y int) ui.Widget {
+	// 按 z-index 倒序排序（高 z-index 优先）
+	sortedWidgets := make([]ui.Widget, len(widgets))
+	copy(sortedWidgets, widgets)
+	sort.Slice(sortedWidgets, func(i, j int) bool {
+		return sortedWidgets[i].GetZIndex() > sortedWidgets[j].GetZIndex()
+	})
+
+	for _, widget := range sortedWidgets {
+		// 先检查子控件
+		children := widget.GetChildren()
+		if found := g.findClickedWidget(children, x, y); found != nil {
+			return found
+		}
+
+		// 再检查当前控件
+		wx, wy := widget.GetX(), widget.GetY()
+		ww, wh := widget.GetWidth(), widget.GetHeight()
+		if x >= wx && x < wx+ww &&
+			y >= wy && y < wy+wh &&
+			widget.IsVisible() && widget.IsInteractive() {
+			return widget
+		}
+	}
+	return nil
+}
+
+// executeCommand 执行脚本命令
+func (g *Game) executeCommand(cmd ui.WidgetCommand) {
+	log.Printf("[Viewer] Executing command: %s on widget %s", cmd.Type, cmd.WidgetID)
+
+	// 查找目标控件
+	widget := g.findWidgetByID(cmd.WidgetID)
+	if widget == nil {
+		log.Printf("[Viewer] Warning: Widget %s not found", cmd.WidgetID)
+		return
+	}
+
+	// 执行命令
+	switch cmd.Type {
+	case ui.CommandSetText:
+		if textSetter, ok := widget.(interface{ SetText(string) }); ok {
+			if text, ok := cmd.Value.(string); ok {
+				textSetter.SetText(text)
+				log.Printf("[Viewer] Set text on %s: %s", cmd.WidgetID, text)
+			}
+		}
+	case ui.CommandSetVisible:
+		if value, ok := cmd.Value.(bool); ok {
+			widget.SetVisible(value)
+		}
+	case ui.CommandSetProperty:
+		// 通用属性设置
+		log.Printf("[Viewer] Set property %s on %s", cmd.Property, cmd.WidgetID)
+	default:
+		log.Printf("[Viewer] Unknown command type: %s", cmd.Type)
+	}
+}
+
+// findWidgetByID 递归查找控件
+func (g *Game) findWidgetByID(id string) ui.Widget {
+	for _, widget := range g.widgets {
+		if found := g.findWidgetRecursive(widget, id); found != nil {
+			return found
+		}
+	}
+	return nil
+}
+
+// findWidgetRecursive 递归查找控件
+func (g *Game) findWidgetRecursive(widget ui.Widget, id string) ui.Widget {
+	if widget.GetID() == id {
+		return widget
+	}
+	for _, child := range widget.GetChildren() {
+		if found := g.findWidgetRecursive(child, id); found != nil {
+			return found
 		}
 	}
 	return nil

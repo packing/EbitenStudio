@@ -253,8 +253,51 @@ class Preview {
       width: window.app?.canvasConfig?.width || 1280,
       height: window.app?.canvasConfig?.height || 720,
       resourcePackHash: resourcePackHash || '',
-      widgets: widgetDataList
+      widgets: widgetDataList,
+      scripts: {} // 脚本数据将在导出时填充
     };
+  }
+
+  /**
+   * 收集所有控件关联的脚本文件内容
+   * @returns {Promise<Object>} 脚本映射 { widgetId: scriptCode }
+   */
+  async collectScripts() {
+    const widgets = window.app?.widgets || [];
+    const scripts = {};
+    
+    for (const widget of widgets) {
+      if (widget.scriptFile) {
+        try {
+          const scriptsDir = await window.app.getProjectScriptsDir();
+          if (scriptsDir) {
+            const scriptPath = await window.electronAPI.path.join(scriptsDir, widget.scriptFile);
+            
+            // 检查是否是 TypeScript 文件
+            if (widget.scriptFile.endsWith('.ts')) {
+              console.log(`[Preview] Compiling TypeScript for ${widget.id}: ${widget.scriptFile}`);
+              const result = await window.electronAPI.compileTypeScript(scriptPath);
+              
+              if (result.success) {
+                scripts[widget.id] = result.code;
+                console.log(`[Preview] TypeScript compiled for ${widget.id}, output length: ${result.code.length}`);
+              } else {
+                console.error(`[Preview] Failed to compile TypeScript for ${widget.id}:`, result.error);
+              }
+            } else {
+              // 直接读取 JavaScript 文件
+              const content = await window.electronAPI.readFile(scriptPath);
+              scripts[widget.id] = content;
+              console.log(`[Preview] Collected script for ${widget.id}: ${widget.scriptFile}`);
+            }
+          }
+        } catch (error) {
+          console.warn(`Failed to load script for ${widget.id}:`, error);
+        }
+      }
+    }
+    
+    return scripts;
   }
 
   /**
@@ -366,6 +409,13 @@ class Preview {
       // 2. 生成UI定义文件（传递defaultFontId）
       const uiData = this.generateUILayoutData(hash, defaultFontId);
       uiData.resourceManifest = manifest;
+      
+      // 3. 收集脚本文件
+      console.log('[Preview] Collecting scripts...');
+      const scripts = await this.collectScripts();
+      uiData.scripts = scripts;
+      console.log('[Preview] Collected scripts:', Object.keys(scripts));
+      
       const uiJsonStr = JSON.stringify(uiData, null, 2);
       console.log('[Preview] UI data generated, length:', uiJsonStr.length);
 
@@ -460,6 +510,13 @@ class Preview {
       // 2. 生成UI定义文件（会自动为文本控件设置字体）
       const uiData = this.generateUILayoutData(hash, defaultFontId);
       uiData.resourceManifest = manifest; // 包含资源清单
+      
+      // 3. 收集脚本文件
+      console.log('[Export] Collecting scripts...');
+      const scripts = await this.collectScripts();
+      uiData.scripts = scripts;
+      console.log('[Export] Collected scripts:', Object.keys(scripts));
+      
       const uiJsonStr = JSON.stringify(uiData, null, 2);
 
       if (window.electronAPI && window.electronAPI.exportUIPackage) {

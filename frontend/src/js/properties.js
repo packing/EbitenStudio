@@ -432,6 +432,11 @@ class PropertiesPanel {
       <div class="property-section-title">背景</div>
       
       ${this.renderBackgroundProperties(w)}
+      
+      <!-- 脚本属性 -->
+      <div class="property-section-title">脚本</div>
+      
+      ${this.renderScriptProperties(w)}
     `;
 
     this.panel.innerHTML = html;
@@ -938,7 +943,104 @@ class PropertiesPanel {
         this.updateProperty('offsetY', parseInt(offsetYInput.value) || 0);
       });
     }
+
+    // ========== 脚本相关事件监听器 ==========
+    
+    // 脚本文件选择
+    const scriptFileSelect = document.getElementById('prop-scriptFile');
+    if (scriptFileSelect) {
+      // 动态加载脚本文件列表
+      this.loadScriptFileOptions(scriptFileSelect);
+      
+      scriptFileSelect.addEventListener('change', () => {
+        this.updateProperty('scriptFile', scriptFileSelect.value);
+        // 更新编辑按钮状态
+        const editBtn = document.getElementById('btn-edit-script');
+        if (editBtn) {
+          editBtn.disabled = !scriptFileSelect.value;
+        }
+      });
+    }
+
+    // 编辑脚本按钮
+    const editScriptBtn = document.getElementById('btn-edit-script');
+    if (editScriptBtn) {
+      editScriptBtn.addEventListener('click', async () => {
+        const widget = this.currentWidget;
+        if (widget && widget.scriptFile) {
+          await window.scriptIntegration.openInExternalEditor(widget.scriptFile);
+        }
+      });
+    }
+
+    // 新建脚本按钮
+    const newScriptBtn = document.getElementById('btn-new-script');
+    if (newScriptBtn) {
+      newScriptBtn.addEventListener('click', async () => {
+        await this.createOrUpdateScriptForWidget();
+      });
+    }
   }
+
+  /**
+   * 加载脚本文件选项
+   */
+  async loadScriptFileOptions(selectElement) {
+    if (!window.scriptIntegration) return;
+    
+    try {
+      const scripts = await window.scriptIntegration.getAvailableScripts();
+      const currentValue = selectElement.value;
+      
+      let html = '<option value="">无脚本</option>';
+      scripts.forEach(script => {
+        const selected = script === currentValue ? 'selected' : '';
+        html += `<option value="${script}" ${selected}>${script}</option>`;
+      });
+      
+      selectElement.innerHTML = html;
+    } catch (error) {
+      console.error('Failed to load script files:', error);
+    }
+  }
+
+  /**
+   * 为当前控件创建脚本（包含所有可用事件）
+   */
+  async createOrUpdateScriptForWidget() {
+    const widget = this.currentWidget;
+    if (!widget) return;
+
+    // 获取该控件类型的所有可用事件
+    const availableEvents = window.scriptIntegration.getAvailableEvents(widget.type);
+    const allEvents = availableEvents.map(e => e.name);
+
+    if (allEvents.length === 0) {
+      alert('该控件类型没有可用事件');
+      return;
+    }
+
+    // 创建脚本文件（包含所有事件）
+    const fileName = await window.scriptIntegration.createNewScript(
+      widget.id,
+      widget.type,
+      allEvents
+    );
+
+    if (fileName) {
+      // 更新控件属性
+      widget.scriptFile = fileName;
+
+      // 刷新界面
+      this.render();
+
+      // 询问是否立即打开编辑
+      if (confirm('脚本文件已创建（包含所有可用事件）。是否在外部编辑器中打开？')) {
+        await window.scriptIntegration.openInExternalEditor(fileName);
+      }
+    }
+  }
+
   
   applyResource(resourceType, resourceId) {
     if (!this.currentWidget) return;
@@ -1225,6 +1327,53 @@ class PropertiesPanel {
     if (window.app) {
       window.app.updateWidgetInList(widget);
     }
+  }
+
+  /**
+   * 渲染脚本属性部分
+   */
+  renderScriptProperties(w) {
+    const availableEvents = window.scriptIntegration?.getAvailableEvents(w.type) || [];
+    const eventsList = availableEvents.length > 0 
+      ? availableEvents.map(e => e.name).join(', ')
+      : '无可用事件';
+
+    return `
+      <div class="property-group">
+        <label class="property-label">脚本文件</label>
+        <div style="display: flex; gap: 4px; align-items: center;">
+          <select class="property-input" id="prop-scriptFile" style="flex: 1;">
+            <option value="">无脚本</option>
+            ${this.renderScriptFileOptions(w.scriptFile)}
+          </select>
+          <button class="icon-btn" id="btn-edit-script" title="编辑脚本 (在外部编辑器中打开)" ${!w.scriptFile ? 'disabled' : ''}>
+            ✎
+          </button>
+          <button class="icon-btn" id="btn-new-script" title="新建脚本 (包含所有可用事件)">
+            +
+          </button>
+        </div>
+      </div>
+      
+      <div class="property-group">
+        <label class="property-label">可用事件</label>
+        <div style="background: #2d2d30; border: 1px solid #3e3e42; border-radius: 4px; padding: 8px; font-size: 11px; color: #888;">
+          ${eventsList}
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * 渲染脚本文件选项
+   */
+  renderScriptFileOptions(currentFile) {
+    // 这个方法会在页面加载后被动态填充
+    // 这里只返回当前选中的选项
+    if (currentFile) {
+      return `<option value="${currentFile}" selected>${currentFile}</option>`;
+    }
+    return '';
   }
 }
 

@@ -74,6 +74,22 @@ class App {
     console.log('Focus context:', context);
   }
 
+  /**
+   * 获取当前项目的脚本目录路径
+   * @returns {Promise<string|null>} 返回 scripts 目录路径，项目未保存时返回 null
+   */
+  async getProjectScriptsDir() {
+    if (!this.currentFilePath) {
+      return null; // 项目未保存
+    }
+    
+    // 获取项目文件所在目录
+    const projectDir = await window.electronAPI.path.dirname(this.currentFilePath);
+    
+    // 返回 scripts 子目录路径
+    return await window.electronAPI.path.join(projectDir, 'scripts');
+  }
+
   setupFileEvents() {
     if (!window.electronAPI) return;
 

@@ -1,0 +1,62 @@
+{
+  "compilerOptions": {
+    // 目标JavaScript版本（goja支持ES5+）
+    "target": "ES2015",
+    
+    // 模块系统（CommonJS，goja使用require）
+    "module": "CommonJS",
+    
+    // 输出目录（编译后的JS文件）
+    "outDir": "./compiled",
+    
+    // 根目录
+    "rootDir": ".",
+    
+    // 严格类型检查
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    
+    // 允许未使用的局部变量（事件处理器可能不使用所有参数）
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    
+    // 跳过库文件类型检查
+    "skipLibCheck": true,
+    
+    // 允许导入JSON
+    "resolveJsonModule": true,
+    
+    // ES模块互操作
+    "esModuleInterop": true,
+    
+    // 保留常量枚举
+    "preserveConstEnums": true,
+    
+    // 生成source map（调试用）
+    "sourceMap": false,
+    
+    // 类型定义文件路径
+    "typeRoots": [
+      "../node_modules/@types",
+      "../"
+    ],
+    
+    // 库文件（基础ES + DOM定时器）
+    "lib": [
+      "ES2015"
+    ]
+  },
+  
+  // 包含的文件
+  "include": [
+    "**/*.ts"
+  ],
+  
+  // 排除的文件
+  "exclude": [
+    "node_modules",
+    "compiled"
+  ]
+}
